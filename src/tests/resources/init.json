@@ -1,0 +1,5 @@
+{"context":{"transaction_id":"bf2bfaca-29ce-4626-8eab-fe7c8558d3d4","action":"init" , "city": "std:080" , "bpp_id" : "ws1.humbhionline.in" },"message":{"order":{"items":[{"quantity":{"count":1},"id":".\/local_retail\/ind\/14@ws1.humbhionline.in.item"}] , "fulfillment":{"end":{"contact":{"phone":"9845114558","email":"venkatramanm@gmail.com"},"location":{"address":{"door":"A302","country":"IND","city":"std:080","street":"Bannergatta Road","area_code":"560076","state":"KA","building":"Pride Apartments"},"gps":"12.910793,77.596316"}},"type":"home_delivery","customer":{"person":{"name":"./Venky/Mr./Venky/ /Mahadevan/"}}},
+"billing":{"address":{"door":"A302","country":"IND","city":"std:080","street":"Bannergatta Road","area_code":"560076","state":"KA","building":"Pride Apartments"},"phone":"9845114558","name":"./Venky/Mr./Venky/ /Mahadevan/","email":"venkatramanm@gmail.com"}
+
+}}}
+

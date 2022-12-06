@@ -1,0 +1,9 @@
+{
+  "context": { "city": "std:080" , "bpp_id" : "ws1.humbhionline.in"},
+  "message": {
+    "intent": {
+      "descriptor" : { "name" : "Mango" }, 
+      "fulfillment": { "end": { "location": { "gps": "12.910793,77.596316" } } }
+    }
+  }
+}
