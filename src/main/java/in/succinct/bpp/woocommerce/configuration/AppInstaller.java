@@ -1,4 +1,4 @@
-package in.succinct.bpp.plugin.woocommerce.configuration;
+package in.succinct.bpp.woocommerce.configuration;
 
 import com.venky.swf.configuration.Installer;
 public class AppInstaller implements Installer{

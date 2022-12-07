@@ -1,4 +1,4 @@
-package in.succinct.bpp.plugin.woocommerce.helpers;
+package in.succinct.bpp.woocommerce.helpers;
 
 import com.venky.cache.Cache;
 import com.venky.core.collections.IgnoreCaseMap;
@@ -6,7 +6,6 @@ import com.venky.core.util.ObjectUtil;
 import com.venky.swf.db.Database;
 import com.venky.swf.db.JdbcTypeHelper.TypeConverter;
 import com.venky.swf.db.annotations.column.ui.mimes.MimeType;
-import com.venky.swf.db.model.Count;
 import com.venky.swf.integration.api.Call;
 import com.venky.swf.integration.api.HttpMethod;
 import com.venky.swf.integration.api.InputFormat;
@@ -42,7 +41,7 @@ import in.succinct.beckn.QuantitySummary;
 import in.succinct.beckn.Quote;
 import in.succinct.beckn.Request;
 import in.succinct.beckn.User;
-import in.succinct.bpp.plugin.woocommerce.helpers.BecknIdHelper.Entity;
+import in.succinct.bpp.woocommerce.helpers.BecknIdHelper.Entity;
 import in.succinct.bpp.shell.util.BecknUtil;
 import org.jose4j.base64url.Base64;
 import org.json.simple.JSONArray;
@@ -55,7 +54,7 @@ import java.util.Map;
 
 public class WooCommerceHelper {
     public String getConfigPrefix(){
-        return "in.succinct.bpp.plugin.woocommerce";
+        return "in.succinct.bpp.woocommerce";
     }
 
 
@@ -543,7 +542,7 @@ public class WooCommerceHelper {
 
 
             City city = Database.getTable(City.class).newRecord();
-            city.setCode(Config.instance().getProperty("in.succinct.bpp.plugin.woocommerce.city"));
+            city.setCode(Config.instance().getProperty("in.succinct.bpp.woocommerce.city"));
             city.setStateId(state.getId());
             city.setName(cityName);
 

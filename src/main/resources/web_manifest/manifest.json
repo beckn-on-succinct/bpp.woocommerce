@@ -1,7 +1,7 @@
 {
-  "name": "bpp.plugin.woocommerce",
-  "short_name": "bpp.plugin.woocommerce",
-  "description": "bpp.plugin.woocommerce",
+  "name": "bpp.woocommerce",
+  "short_name": "bpp.woocommerce",
+  "description": "bpp.woocommerce",
   "lang": "en-US",
   "start_url": "/",
   "display": "standalone",

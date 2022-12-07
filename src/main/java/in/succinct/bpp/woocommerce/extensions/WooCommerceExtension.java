@@ -1,4 +1,4 @@
-package in.succinct.bpp.plugin.woocommerce.extensions;
+package in.succinct.bpp.woocommerce.extensions;
 
 import com.venky.core.collections.IgnoreCaseMap;
 import com.venky.core.util.ObjectUtil;
@@ -15,7 +15,7 @@ import in.succinct.beckn.Provider;
 import in.succinct.beckn.Providers;
 import in.succinct.beckn.Quote;
 import in.succinct.beckn.Request;
-import in.succinct.bpp.plugin.woocommerce.helpers.WooCommerceHelper;
+import in.succinct.bpp.woocommerce.helpers.WooCommerceHelper;
 import in.succinct.bpp.shell.extensions.BppActionExtension;
 import org.json.simple.JSONArray;
 import org.json.simple.JSONObject;

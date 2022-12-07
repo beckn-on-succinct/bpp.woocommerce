@@ -1,4 +1,4 @@
-const staticCacheName = "bpp.plugin.woocommerce";
+const staticCacheName = "bpp.woocommerce";
 
 self.addEventListener('fetch', function(event){
     event.respondWith(

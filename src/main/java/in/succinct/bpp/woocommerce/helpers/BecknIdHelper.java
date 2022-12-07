@@ -1,4 +1,4 @@
-package in.succinct.bpp.plugin.woocommerce.helpers;
+package in.succinct.bpp.woocommerce.helpers;
 
 import com.venky.core.util.ObjectUtil;
 import in.succinct.beckn.Context;

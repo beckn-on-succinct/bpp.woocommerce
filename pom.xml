@@ -2,10 +2,10 @@
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
   <modelVersion>4.0.0</modelVersion>
   <groupId>in.succinct</groupId>
-  <artifactId>bpp.plugin.woocommerce</artifactId>
+  <artifactId>bpp.woocommerce</artifactId>
   <version>1.0-SNAPSHOT</version>
-  <name>bpp.plugin.woocommerce</name>
-  <description>bpp.plugin.woocommerce</description>
+  <name>bpp.woocommerce</name>
+  <description>bpp.woocommerce</description>
     <properties>
       <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
       <revision>2.11</revision>
@@ -19,7 +19,7 @@
                     <dependencies>
                         <dependency>
                             <groupId>in.succinct</groupId>
-                            <artifactId>bpp.plugin.woocommerce</artifactId>
+                            <artifactId>bpp.woocommerce</artifactId>
                             <version>1.0-SNAPSHOT</version>
                         </dependency>
                     </dependencies>

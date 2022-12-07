@@ -2,7 +2,7 @@
  * To change this template, choose Tools | Templates
  * and open the template in the editor.
  */
-package in.succinct.bpp.plugin.woocommerce.menu;
+package in.succinct.bpp.woocommerce.menu;
 
 import com.venky.swf.menu.DefaultMenuBuilder;
 
