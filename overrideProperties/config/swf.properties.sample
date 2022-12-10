@@ -60,11 +60,13 @@ in.succinct.bpp.shell.country.iso.3=IND
 in.succinct.bpp.shell.country.iso.2=IN
 
 in.succinct.bpp.woocommerce.storeUrl=https://your-wordpress-domain/index.php/wp-json/wc/v3
-#Generated in 
+#Generated in Woocomerce Settings->Advanced->Webhooks
 in.succinct.bpp.woocommerce.clientId=ck_.... 
 in.succinct.bpp.woocommerce.secret=cs_...
+
+#Stores city std code as std:080 for.e.g.
 in.succinct.bpp.woocommerce.city=std:080
-in.succinct.bpp.woocommerce.hmac.key=venky12
+in.succinct.bpp.woocommerce.hmac.key=some_secret_you_like
 
 
 beckn.auth.enabled=true
