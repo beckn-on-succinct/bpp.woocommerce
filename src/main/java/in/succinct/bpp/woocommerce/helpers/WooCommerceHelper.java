@@ -380,13 +380,17 @@ public class WooCommerceHelper {
 
         Address address = fulfillment.getEnd().getLocation().getAddress();
         Contact contact = fulfillment.getEnd().getContact();
-        City city = City.findByCode(address.getCity());
+
+        Country country = Country.findByName(address.getCountry());
+        State state = State.findByCountryAndName(country.getId(),address.getState());
+        City city = City.findByStateAndName(state.getId(),address.getCity());
+
         shipping.put("address_1",address.getDoor()+"," +address.getBuilding());
         shipping.put("address_2",address.getStreet()+","+address.getLocality());
         shipping.put("city", city.getName());
-        shipping.put("state",city.getState().getCode());
+        shipping.put("state",state.getCode());
         shipping.put("postcode",address.getAreaCode());
-        shipping.put("country",city.getState().getCountry().getIsoCode2());
+        shipping.put("country",country.getIsoCode2());
         shipping.put("email",contact.getEmail());
         shipping.put("phone",contact.getPhone());
 
@@ -398,14 +402,21 @@ public class WooCommerceHelper {
         String[] parts = boBilling.getName().split(" ");
         billing.put("first_name",parts[0]);
         billing.put("last_name", boBilling.getName().substring(parts[0].length()));
-        billing.put("address_1",boBilling.getAddress().getDoor()+"," +boBilling.getAddress().getBuilding());
-        billing.put("address_2",boBilling.getAddress().getStreet()+","+boBilling.getAddress().getLocality());
-        City city = City.findByCode(boBilling.getAddress().getCity());
+        if (boBilling.getAddress() != null){
+            billing.put("address_1",boBilling.getAddress().getDoor()+"," +boBilling.getAddress().getBuilding());
+            billing.put("address_2",boBilling.getAddress().getStreet()+","+boBilling.getAddress().getLocality());
 
-        billing.put("city", city.getName());
-        billing.put("state",city.getState().getCode());
-        billing.put("postcode",boBilling.getAddress().getAreaCode());
-        billing.put("country",city.getState().getCountry().getIsoCode2());
+            Country country = Country.findByName(boBilling.getAddress().getCountry());
+            State state = State.findByCountryAndName(country.getId(),boBilling.getAddress().getState());
+            City city = City.findByStateAndName(state.getId(),boBilling.getAddress().getCity());
+
+            billing.put("city", city.getName());
+            billing.put("state",city.getState().getCode());
+            billing.put("country",city.getState().getCountry().getIsoCode2());
+            billing.put("postcode",boBilling.getAddress().getAreaCode());
+        }
+
+
         billing.put("email",boBilling.getEmail());
         billing.put("phone",boBilling.getPhone());
 
@@ -413,9 +424,21 @@ public class WooCommerceHelper {
     public Order getBecknOrder(JSONObject wooOrder) {
         Order order = new Order();
         order.setPayment(new Payment());
-        order.setId(BecknIdHelper.getBecknId(String.valueOf(wooOrder.get("id")),Entity.order));
         setPayment(order.getPayment(),wooOrder);
+        Quote quote = new Quote();
+        order.setQuote(quote);
+        quote.setTtl(15*60);
+        quote.setPrice(new Price());
+        quote.getPrice().setValue(order.getPayment().getParams().getAmount());
+        quote.getPrice().setCurrency(order.getPayment().getParams().getCurrency());
+        quote.setBreakUp(new BreakUp());
+        BreakUpElement element = quote.getBreakUp().createElement("item","Total Product",quote.getPrice());
+        quote.getBreakUp().add(element);
+        //Delivery breakup to be filled.
+
+
         setBoBilling(order,wooOrder);
+        order.setId(BecknIdHelper.getBecknId(String.valueOf(wooOrder.get("id")),Entity.order));
         order.setState((String) wooOrder.get("status"));
         createItems(order,(JSONArray)wooOrder.get("line_items"));
 
@@ -425,7 +448,15 @@ public class WooCommerceHelper {
         order.getFulfillment().getEnd().getLocation().setAddress(new Address());
         order.getFulfillment().getEnd().setContact(new Contact());
         order.getFulfillment().setCustomer(new User());
+        order.getFulfillment().setState(order.getState());
+        order.getFulfillment().setId(BecknIdHelper.getBecknId(String.valueOf(wooOrder.get("id")),Entity.fulfillment));
 
+        Locations locations = new Locations();
+        createLocation(locations);
+        if (locations.size() > 0) {
+            order.getFulfillment().setStart(new FulfillmentStop());
+            order.getFulfillment().getStart().setLocation(locations.get(0));
+        }
 
         JSONObject shipping = (JSONObject) wooOrder.get("shipping");
         if (ObjectUtil.isVoid(shipping.get("address_1"))){
@@ -451,12 +482,13 @@ public class WooCommerceHelper {
             address.setLocality(address2_parts[1]);
         }
         Country country = Country.findByISO((String) shipping.get("country"));
-        address.setCountry(country.getIsoCode());
-        address.setState((String)shipping.get("state"));
-        State state = State.findByCountryAndCode(country.getId(),address.getState());
+        State state = State.findByCountryAndCode(country.getId(),(String)shipping.get("state"));
+        City city = City.findByStateAndName(state.getId(),(String) shipping.get("city"));
 
+        address.setCountry(country.getName());
+        address.setState(state.getName());
         address.setPinCode((String)shipping.get("postcode"));
-        address.setCity(City.findByStateAndName(state.getId(),(String) shipping.get("city")).getCode());
+        address.setCity(city.getName());
 
         order.getFulfillment().getEnd().getContact().setPhone((String)shipping.get("phone"));
         order.getFulfillment().getEnd().getContact().setEmail((String)shipping.get("email"));
@@ -464,8 +496,7 @@ public class WooCommerceHelper {
 
         order.setProvider(new Provider());
         order.getProvider().setId(BecknIdHelper.getBecknId(BecknUtil.getSubscriberId(), Entity.provider));
-        order.setProviderLocation(new Location());
-        order.getProviderLocation().setId(BecknIdHelper.getBecknId(BecknUtil.getSubscriberId(), Entity.provider_location));
+        order.setProviderLocation(locations.get(0));
 
 
 
@@ -473,11 +504,12 @@ public class WooCommerceHelper {
     }
     private void setPayment(Payment payment, JSONObject wooOrder) {
 
-        if (!booleanTypeConverter.valueOf(wooOrder.get("set_paid"))) {
+        if (!booleanTypeConverter.valueOf(wooOrder.get("date_paid"))) {
             payment.setStatus("NOT-PAID");
         }else {
             payment.setStatus("PAID");
         }
+        payment.setType("POST-FULFILLMENT");
         payment.setParams(new Params());
         payment.getParams().setCurrency(getSettings("general","woocommerce_currency"));
         payment.getParams().setAmount(doubleTypeConverter.valueOf(wooOrder.get("total")));
@@ -498,12 +530,12 @@ public class WooCommerceHelper {
         address.setPinCode((String)wooBilling.get("postcode"));
 
         Country country= Country.findByISO((String)wooBilling.get("country"));
-        address.setCountry(country.getIsoCode());
+        State state = State.findByCountryAndCode(country.getId(),(String) wooBilling.get("state"));
+        City city = City.findByStateAndName(state.getId(),(String)wooBilling.get("city"));
 
-        address.setState((String) wooBilling.get("state"));
-        State state = State.findByCountryAndCode(country.getId(),address.getState());
-
-        address.setCity(City.findByStateAndName(state.getId(),(String)wooBilling.get("city")).getCode());
+        address.setCountry(country.getName());
+        address.setState(state.getName());
+        address.setCity(city.getName());
 
     }
 
@@ -529,7 +561,7 @@ public class WooCommerceHelper {
             country.setName(descriptions[0]);
             country = Database.getTable(Country.class).getRefreshed(country);
             country.save();
-            address.setCountry(country.getIsoCode());
+            address.setCountry(country.getName());
 
             State state = Database.getTable(State.class).newRecord();
             state.setCode(cs[1]);
@@ -537,7 +569,7 @@ public class WooCommerceHelper {
             state.setName(descriptions[1]);
             state = Database.getTable(State.class).getRefreshed(state);
             state.save();
-            address.setState(state.getCode());
+            address.setState(state.getName());
 
 
 
@@ -549,7 +581,7 @@ public class WooCommerceHelper {
             city = Database.getTable(City.class).getRefreshed(city);
             city.save();
 
-            address.setCity(city.getCode());
+            address.setCity(city.getName());
         }
         address.setPinCode(getSettings("general","woocommerce_store_postcode"));
         address.setStreet(getSettings("general","woocommerce_store_address"));

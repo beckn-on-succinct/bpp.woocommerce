@@ -6,7 +6,7 @@
 tmp/*log*
 tmp/*docker*
 tmp/pid
-overrideProperties/
+overrideProperties/config/swf.properties
 nohup.out
 database/*db*
 database/*business*

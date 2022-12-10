@@ -1,8 +1,13 @@
 package in.succinct.bpp.woocommerce.extensions;
 
 import com.venky.core.collections.IgnoreCaseMap;
+import com.venky.core.string.StringUtil;
 import com.venky.core.util.ObjectUtil;
 import com.venky.extension.Registry;
+import com.venky.swf.db.Database;
+import com.venky.swf.sql.Expression;
+import com.venky.swf.sql.Operator;
+import com.venky.swf.sql.Select;
 import in.succinct.beckn.Catalog;
 import in.succinct.beckn.Intent;
 import in.succinct.beckn.Item;
@@ -15,10 +20,13 @@ import in.succinct.beckn.Provider;
 import in.succinct.beckn.Providers;
 import in.succinct.beckn.Quote;
 import in.succinct.beckn.Request;
-import in.succinct.bpp.woocommerce.helpers.WooCommerceHelper;
 import in.succinct.bpp.shell.extensions.BppActionExtension;
+import in.succinct.bpp.woocommerce.db.model.BecknOrderMeta;
+import in.succinct.bpp.woocommerce.helpers.WooCommerceHelper;
 import org.json.simple.JSONArray;
 import org.json.simple.JSONObject;
+
+import java.util.List;
 
 public class WooCommerceExtension extends BppActionExtension {
     static {
@@ -88,6 +96,10 @@ public class WooCommerceExtension extends BppActionExtension {
 
         Message message = helper.createMessage(reply);
         message.setOrder(helper.getBecknOrder(outOrder));
+        BecknOrderMeta becknOrderMeta = Database.getTable(BecknOrderMeta.class).newRecord();
+        becknOrderMeta.setBecknTransactionId(request.getContext().getTransactionId());
+        becknOrderMeta.setWooCommerceOrderId(StringUtil.valueOf(outOrder.get("id")));
+        becknOrderMeta.save();
 
     }
 
@@ -98,25 +110,36 @@ public class WooCommerceExtension extends BppActionExtension {
             throw new RuntimeException("No Order passed");
         }
         JSONObject wooOrder = helper.makeWooOrder(order);
-        if (wooOrder.containsKey("id")) {
-            JSONObject outOrder = helper.woo_get("/orders/" + wooOrder.get("id"),new JSONObject());
-            if (outOrder == null && outOrder.isEmpty()) {
-                throw new RuntimeException("Order could not be found to confirm!");
-            }
-            if (!ObjectUtil.equals(outOrder.get("status"),"pending")){
-                throw new RuntimeException("Order already confirmed!");
-            }
-
-            JSONObject params = new JSONObject();
-            params.put("status","processing");
-
-            outOrder = helper.woo_put("/orders/" + wooOrder.get("id"), params);
-            if (outOrder != null && !outOrder.isEmpty()){
-                Message message = helper.createMessage(reply);
-                message.setOrder(helper.getBecknOrder(outOrder));
-                return;
+        if (!wooOrder.containsKey("id")) {
+            String txnId = request.getContext().getTransactionId();
+            Select select = new Select().from(BecknOrderMeta.class);
+            List<BecknOrderMeta> list = select.where(new Expression(select.getPool(),"BECKN_TRANSACTION_ID", Operator.EQ,txnId)).execute(1);
+            if (!list.isEmpty()){
+                wooOrder.put("id",list.get(0).getWooCommerceOrderId());
             }
         }
+        JSONObject outOrder = null;
+        if (wooOrder.containsKey("id")) {
+            outOrder = helper.woo_get("/orders/" + wooOrder.get("id"), new JSONObject());
+        }
+
+        if (outOrder == null && outOrder.isEmpty()) {
+            throw new RuntimeException("Order could not be found to confirm!");
+        }
+        if (!ObjectUtil.equals(outOrder.get("status"),"pending")){
+            throw new RuntimeException("Order already confirmed!");
+        }
+
+        JSONObject params = new JSONObject();
+        params.put("status","processing");
+
+        outOrder = helper.woo_put("/orders/" + wooOrder.get("id"), params);
+        if (outOrder != null && !outOrder.isEmpty()){
+            Message message = helper.createMessage(reply);
+            message.setOrder(helper.getBecknOrder(outOrder));
+            return;
+        }
+
 
         throw new RuntimeException("Insufficient information to confirm order!");
     }
