@@ -9,7 +9,7 @@ To install from source:
 	* jdk (17+)
 	* apache maven(3.8.4+)
 ---	 
-1. Run the following command from your home directory. 
+2. Run the following command from your home directory. 
 ```
     $ curl https://raw.githubusercontent.com/venkatramanm/easy-installers/master/bpp-woo-installer.sh | bash
     $ cd site/bpp.woocommerce
@@ -52,7 +52,7 @@ To install from source:
 	* Choose the secret specified in your swf.properties against in.succinct.bpp.woocommerce.hmac.key
 ---	 
 	
-2. To Register on a network registry:
+5. To Register on a network registry:
 	* On Beckn reference registry , you need not do any thing. The application automatically onboards on startup. 
 	* To register on Other registries, you need to follow that network's SOP. 
 	* To get your subscriber_json run,
