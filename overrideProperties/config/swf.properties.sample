@@ -9,7 +9,7 @@ swf.application.authentication.required=false
 #swf.host=localhost
 
 #Point to your public url 
-swf.host=ws1.humbhionline.in
+swf.host=your_domain_where_your_service_is_hosted
 swf.external.port=443
 swf.external.scheme=https
 
@@ -58,6 +58,7 @@ in.succinct.bpp.shell.registry.url=https://registry.becknprotocol.io/subscribers
 in.succinct.bpp.shell.registry.id=registry.becknprotocol.io..LREG
 in.succinct.bpp.shell.country.iso.3=IND
 in.succinct.bpp.shell.country.iso.2=IN
+in.succinct.bpp.shell.subscriber.id=your_subscriber_id
 
 in.succinct.bpp.woocommerce.storeUrl=https://your-wordpress-domain/index.php/wp-json/wc/v3
 #Generated in Woocomerce Settings->Advanced->Webhooks

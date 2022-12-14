@@ -131,7 +131,7 @@ public class WooCommerceExtension extends BppActionExtension {
         }
 
         JSONObject params = new JSONObject();
-        params.put("status","processing");
+        params.put("status","on_hold");
 
         outOrder = helper.woo_put("/orders/" + wooOrder.get("id"), params);
         if (outOrder != null && !outOrder.isEmpty()){
