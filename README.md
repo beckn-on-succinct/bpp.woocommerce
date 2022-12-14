@@ -8,12 +8,13 @@ To install from source:
 1. Install dependencies
 	* jdk (17+)
 	* apache maven(3.8.4+)
-	 
+---	 
 1. Run the following command from your home directory. 
 ```
     $ curl https://raw.githubusercontent.com/venkatramanm/easy-installers/master/bpp-woo-installer.sh | bash
     $ cd site/bpp.woocommerce
     $ cp overrideProperties/config/swf.properties.sample overrideProperties/config/swf.properties 
+---	 
 ```
 3. Edit  overrideProperties/config/swf.properties and point swf.host etc to the correct domain/subdomain where this server would be hosted.
 ```
@@ -44,19 +45,23 @@ To install from source:
     in.succinct.bpp.woocommerce.city=std:080
     in.succinct.bpp.woocommerce.hmac.key=some_secret_you_like
 ```
+---	 
 
 4. On Woocommerce store, do the following
 	* Settings->Advanced->Webhooks and create a webhook for topic Order updated to be delivered to https://your_fully_qualified_domain/woo_commerce/hook 
 	* Choose the secret specified in your swf.properties against in.succinct.bpp.woocommerce.hmac.key
+---	 
 	
 2. To Register on a network registry:
 	* On Beckn reference registry , you need not do any thing. The application automatically onboards on startup. 
 	* To register on Other registries, you need to follow that network's SOP. 
-	* To get your subscriber_json to register, change directory to site/bpp.woocommerce, 		
+	* To get your subscriber_json run,
 ``` 
-    $ chmod +x bin/callapi ; bin/callapi root/your_root_password bpp/subscriber_json
+    $ curl https://your_domain/bpp/subscriber_json
 ```
+---	 
 6. To bring up your service, Run:
 ```
     $ chmod +x bin/swfstart ; bin/swfstart 		
 ```
+---	 
