@@ -14,8 +14,8 @@ To install from source:
     $ curl https://raw.githubusercontent.com/venkatramanm/easy-installers/master/bpp-woo-installer.sh | bash
     $ cd site/bpp.woocommerce
     $ cp overrideProperties/config/swf.properties.sample overrideProperties/config/swf.properties 
----	 
 ```
+---	 
 3. Edit  overrideProperties/config/swf.properties and point swf.host etc to the correct domain/subdomain where this server would be hosted.
 ```
     #Point to your public url reachable by the beckn network like ondc.
