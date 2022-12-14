@@ -56,11 +56,12 @@ swf.jdbc.set.dbschema.command=set schema public
 
 in.succinct.bpp.shell.registry.url=https://registry.becknprotocol.io/subscribers
 in.succinct.bpp.shell.registry.id=registry.becknprotocol.io..LREG
+in.succinct.bpp.shell.registry.auto.register=true
 in.succinct.bpp.shell.country.iso.3=IND
 in.succinct.bpp.shell.country.iso.2=IN
 
-## Usually same as host but can be different.
-in.succinct.bpp.shell.subscriber.id=your_subscriber_id
+## Usually defaulted to swf.host but can be different.
+#in.succinct.bpp.shell.subscriber.id=your_subscriber_id
 
 in.succinct.bpp.woocommerce.storeUrl=https://your-wordpress-domain/index.php/wp-json/wc/v3
 #Generated in Woocomerce Settings->Advanced->Webhooks
