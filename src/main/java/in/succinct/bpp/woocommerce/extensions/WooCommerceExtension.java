@@ -8,7 +8,14 @@ import com.venky.swf.db.Database;
 import com.venky.swf.sql.Expression;
 import com.venky.swf.sql.Operator;
 import com.venky.swf.sql.Select;
+import in.succinct.beckn.BecknStrings;
 import in.succinct.beckn.Catalog;
+import in.succinct.beckn.Categories;
+import in.succinct.beckn.Category;
+import in.succinct.beckn.Descriptor;
+import in.succinct.beckn.Fulfillment;
+import in.succinct.beckn.Fulfillment.FulfillmentType;
+import in.succinct.beckn.Fulfillments;
 import in.succinct.beckn.Intent;
 import in.succinct.beckn.Item;
 import in.succinct.beckn.Items;
@@ -16,6 +23,8 @@ import in.succinct.beckn.Location;
 import in.succinct.beckn.Locations;
 import in.succinct.beckn.Message;
 import in.succinct.beckn.Order;
+import in.succinct.beckn.Payment;
+import in.succinct.beckn.Payments;
 import in.succinct.beckn.Provider;
 import in.succinct.beckn.Providers;
 import in.succinct.beckn.Quote;
@@ -34,7 +43,12 @@ public class WooCommerceExtension extends BppActionExtension {
     }
     private final WooCommerceHelper helper = new WooCommerceHelper();
     @Override
-    public void search(Request request, Request reply) {
+    public void search(Request request,Request reply){
+
+    }
+    /* Don't remove Used from AppInstaller */
+    /* Search is fulfilled from the plugin */
+    public void _search(Request request, Request reply) {
         Intent intent = request.getMessage().getIntent();
         JSONObject search = new JSONObject();
         search.put("status","publish");
@@ -48,8 +62,11 @@ public class WooCommerceExtension extends BppActionExtension {
         Message message = helper.createMessage(reply);
         Catalog catalog = helper.createCatalog(message);
         Providers providers = helper.createProviders(catalog);
-        Provider provider = helper.createProvider(providers,reply.getContext());
+        Provider provider = helper.createProvider(providers);
         provider.setLocations(new Locations());
+        provider.setPayments(new Payments());
+        provider.setCategories(new Categories());
+        provider.setFulfillments(new Fulfillments());
         catalog.setDescriptor(provider.getDescriptor());
         Location location = helper.createLocation(provider.getLocations());
 
@@ -59,8 +76,51 @@ public class WooCommerceExtension extends BppActionExtension {
             put("X-HTTP-Method-Override","GET");
         }});
         for (int i = 0 ; i < woo_products.size() ; i ++){
-            Item item = helper.createItem(items,(JSONObject) woo_products.get(i));
+            JSONObject woo_product = (JSONObject) woo_products.get(i);
+            Item item = helper.createItem(items,woo_product);
             item.setLocationId(location.getId());
+            item.setLocationIds(new BecknStrings());
+            item.getLocationIds().add(location.getId());
+            if (provider.getLocations().get(location.getId()) == null) {
+                provider.getLocations().add(location);
+            }
+
+            Fulfillment fulfillment =new Fulfillment();
+            fulfillment.setId(FulfillmentType.store_pickup.toString());
+            fulfillment.setType(FulfillmentType.store_pickup);
+            item.setFulfillmentIds(new BecknStrings());
+            item.getFulfillmentIds().add(fulfillment.getId());
+            if (provider.getFulfillments().get(fulfillment.getId()) == null) {
+                provider.getFulfillments().add(fulfillment);
+            }
+
+            JSONArray categories = (JSONArray) woo_product.get("categories");
+            for (Object ocategory : categories){
+                JSONObject wooCategory = (JSONObject) ocategory;
+                Category category= new Category();
+                category.setId(StringUtil.valueOf(wooCategory.get("id")));
+                category.setDescriptor(new Descriptor());
+                category.getDescriptor().setName((String)wooCategory.get("name"));
+                category.getDescriptor().setCode((String)wooCategory.get("slug"));
+
+                if (provider.getCategories().get(category.getId()) == null) {
+                    provider.getCategories().add(category);
+                }
+                item.setCategoryIds(new BecknStrings());
+                item.getCategoryIds().add(category.getId());
+
+            }
+            item.setPaymentIds(new BecknStrings());
+            Payment payment = new Payment();
+            payment.setType("POST-FULFILLMENT");
+            payment.setId(payment.getType());
+            item.setPaymentIds(new BecknStrings());
+            item.getPaymentIds().add(payment.getId());
+            if (provider.getPayments().get(payment.getId()) == null) {
+                provider.getPayments().add(payment);
+            }
+
+
         }
     }
 
@@ -197,7 +257,7 @@ public class WooCommerceExtension extends BppActionExtension {
 
     @Override
     public void rating(Request request, Request reply) {
-        throw new RuntimeException("Service rating not yet implemented");
+
     }
 
 

@@ -114,7 +114,7 @@ public class WooCommerceHelper {
         return providers;
     }
 
-    public Provider createProvider(Providers providers, Context context) {
+    public Provider createProvider(Providers providers) {
         Provider provider = new Provider();
         provider.setDescriptor(new Descriptor());
         provider.getDescriptor().setName(BecknUtil.getSubscriberId());

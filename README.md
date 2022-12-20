@@ -1,5 +1,5 @@
 # bpp.woocommerce
-WooCommerce adaptor to bpp-shell 
+WooCommerce adaptor to [bpp-shell](https://github.com/venkatramanm/bpp.shell) 
 
 # Installation (Linux)
 
