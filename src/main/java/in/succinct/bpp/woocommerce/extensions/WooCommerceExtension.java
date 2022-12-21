@@ -106,9 +106,10 @@ public class WooCommerceExtension extends BppActionExtension {
                 if (provider.getCategories().get(category.getId()) == null) {
                     provider.getCategories().add(category);
                 }
-                item.setCategoryIds(new BecknStrings());
+                if (item.getCategoryIds() == null) {
+                    item.setCategoryIds(new BecknStrings());
+                }
                 item.getCategoryIds().add(category.getId());
-
             }
             item.setPaymentIds(new BecknStrings());
             Payment payment = new Payment();
@@ -119,7 +120,6 @@ public class WooCommerceExtension extends BppActionExtension {
             if (provider.getPayments().get(payment.getId()) == null) {
                 provider.getPayments().add(payment);
             }
-
 
         }
     }

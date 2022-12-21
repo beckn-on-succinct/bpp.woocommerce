@@ -1,5 +1,4 @@
-{
-  "context": { "city": "std:080" , "bpp_id" : "glasshopper.in"},
+{ "context": { "city": "std:080" , "bpp_id" : "glasshopper.in"},
   "message": {
     "intent": {
       "item" : { "descriptor" : { "name" : "Rings" }}, 
