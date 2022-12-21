@@ -1,9 +1,2 @@
-{
-  "context": { "city": "std:080" , "bpp_id" : "ws1.humbhionline.in"},
-  "message": {
-    "intent": {
-      "descriptor" : { "name" : "Mango" }, 
-      "fulfillment": { "end": { "location": { "gps": "12.910793,77.596316" } } }
-    }
-  }
-}
+{ "context": { "city": "std:080" , "bpp_id" : "ws1.humbhionline.in"},
+"message":{"intent":{"fulfillment":{"start":{"location":{}},"end":{"location":{"gps":"12.9022652,77.5999986"}}},"item":{"descriptor":{"name":"Mango"}},"provider":{"descriptor":{}},"category":{"descriptor":{}}}}}

@@ -1,0 +1,9 @@
+{
+  "context": { "city": "std:080" , "bpp_id" : "glasshopper.in"},
+  "message": {
+    "intent": {
+      "item" : { "descriptor" : { "name" : "Rings" }}, 
+      "fulfillment": { "end": { "location": { "gps": "12.910793,77.596316" } } }
+    }
+  }
+}
