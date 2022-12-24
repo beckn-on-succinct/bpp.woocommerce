@@ -1,8 +1,6 @@
 package in.succinct.bpp.woocommerce.helpers;
 
 import com.venky.core.util.ObjectUtil;
-import in.succinct.beckn.Context;
-import in.succinct.bpp.shell.util.BecknUtil;
 
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -12,9 +10,6 @@ public class BecknIdHelper {
         return "./local_retail/ind/";
     }
 
-    public static String getIdSuffix(){
-        return BecknUtil.getSubscriberId();
-    }
     public enum Entity {
         fulfillment,
         category,
@@ -28,12 +23,7 @@ public class BecknIdHelper {
         order
     }
 
-    public static String getBecknId(Long localUniqueId,Entity becknEntity){
-        return getBecknId(String.valueOf(localUniqueId),becknEntity);
-    }
-    public static String getBecknId(String localUniqueId,Entity becknEntity){
-        return getBecknId(getIdPrefix(),localUniqueId, getIdSuffix(), becknEntity);
-    }
+
     public static String getLocalUniqueId(String beckId, Entity becknEntity) {
         String pattern = "^(.*/)(.*)@(.*)\\." + becknEntity + "$";
         Matcher matcher = Pattern.compile(pattern).matcher(beckId);
@@ -42,16 +32,16 @@ public class BecknIdHelper {
         }
         return "-1";
     }
-    public static String getBecknId(String prefix, String localUniqueId, String suffix , Entity becknEntity){
+    public static String getBecknId(String localUniqueId, String subscriber_id , Entity becknEntity){
         StringBuilder builder = new StringBuilder();
-        builder.append(prefix);
+        builder.append(getIdPrefix());
         if (!ObjectUtil.isVoid(localUniqueId)){
             builder.append(localUniqueId);
         }else {
             builder.append(0);
         }
         builder.append("@");
-        builder.append(suffix);
+        builder.append(subscriber_id);
         if (becknEntity != null){
             builder.append(".").append(becknEntity);
         }

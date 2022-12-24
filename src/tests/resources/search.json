@@ -1,3 +1,3 @@
-{  "context": {"country":"IND","city":"std:080","action":"search","timestamp":"2022-12-21T09:44:44.528172Z", "bpp_id":"ws1.humbhionline.in" },
-   "message":{"intent":{"fulfillment":{"start":{"location":{}},"end":{"location":{"gps":"12.9022652,77.5999986"}}},"item":{"descriptor":{"name":"Alphonso"}},"provider":{"descriptor":{}},"category":{"descriptor":{}}}}}
+{  "context": {"country":"IND","city":"std:080","action":"search","timestamp":"2022-12-21T09:44:44.528172Z", "bpp_id":"https://69ac-2401-4900-26f2-1f83-939b-2281-c2a8-4df.in.ngrok.io/beckn2magneto" },
+   "message":{"intent":{"fulfillment":{"start":{"location":{}},"end":{"location":{"gps":"12.9022652,77.5999986"}}},"item":{"descriptor":{"name":"Backpack"}},"provider":{"descriptor":{}},"category":{"descriptor":{}}}}}
 

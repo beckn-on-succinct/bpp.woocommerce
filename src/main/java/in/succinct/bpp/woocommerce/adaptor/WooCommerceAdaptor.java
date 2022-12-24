@@ -1,10 +1,10 @@
-package in.succinct.bpp.woocommerce.extensions;
+package in.succinct.bpp.woocommerce.adaptor;
 
 import com.venky.core.collections.IgnoreCaseMap;
 import com.venky.core.string.StringUtil;
 import com.venky.core.util.ObjectUtil;
-import com.venky.extension.Registry;
 import com.venky.swf.db.Database;
+import com.venky.swf.plugins.beckn.messaging.Subscriber;
 import com.venky.swf.sql.Expression;
 import com.venky.swf.sql.Operator;
 import com.venky.swf.sql.Select;
@@ -29,22 +29,39 @@ import in.succinct.beckn.Provider;
 import in.succinct.beckn.Providers;
 import in.succinct.beckn.Quote;
 import in.succinct.beckn.Request;
-import in.succinct.bpp.shell.extensions.BppActionExtension;
+import in.succinct.bpp.core.adaptor.CommerceAdaptor;
+import in.succinct.bpp.core.registry.BecknRegistry;
+import in.succinct.bpp.search.adaptor.SearchAdaptor;
 import in.succinct.bpp.woocommerce.db.model.BecknOrderMeta;
 import in.succinct.bpp.woocommerce.helpers.WooCommerceHelper;
 import org.json.simple.JSONArray;
 import org.json.simple.JSONObject;
 
 import java.util.List;
+import java.util.Map;
 
-public class WooCommerceExtension extends BppActionExtension {
-    static {
-        Registry.instance().registerExtension("in.succinct.bpp.shell.extension",new WooCommerceExtension());
+public class WooCommerceAdaptor extends CommerceAdaptor {
+    final SearchAdaptor searchAdaptor;
+    final WooCommerceHelper helper ;
+    final Map<String,String> configuration ;
+    public WooCommerceAdaptor(Map<String,String> configuration, Subscriber subscriber, BecknRegistry registry){
+        super(subscriber,registry);
+        this.searchAdaptor = new SearchAdaptor(this);
+        this.helper = new WooCommerceHelper(this);
+        this.configuration = configuration;
     }
-    private final WooCommerceHelper helper = new WooCommerceHelper();
+
+    public Map<String, String> getConfiguration() {
+        return configuration;
+    }
+
+    public WooCommerceHelper getHelper() {
+        return helper;
+    }
+
     @Override
     public void search(Request request,Request reply){
-
+        this.searchAdaptor.search(request,reply);
     }
     /* Don't remove Used from AppInstaller */
     /* Search is fulfilled from the plugin */
@@ -242,7 +259,6 @@ public class WooCommerceExtension extends BppActionExtension {
             order.setId(request.getMessage().get("order_id"));
             request.getMessage().setOrder(order);
         }
-
         JSONObject wooOrder = helper.makeWooOrder(order);
         if (wooOrder.containsKey("id")) {
             JSONObject outOrder = helper.woo_get("/orders/" + wooOrder.get("id"),new JSONObject());
@@ -287,4 +303,11 @@ public class WooCommerceExtension extends BppActionExtension {
     public void get_feedback_categories(Request request, Request reply) {
 
     }
+
+    @Override
+    public void get_feedback_form(Request request, Request reply) {
+
+    }
+
+
 }

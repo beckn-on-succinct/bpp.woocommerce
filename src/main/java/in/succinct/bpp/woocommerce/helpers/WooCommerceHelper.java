@@ -12,14 +12,12 @@ import com.venky.swf.integration.api.InputFormat;
 import com.venky.swf.plugins.collab.db.model.config.City;
 import com.venky.swf.plugins.collab.db.model.config.Country;
 import com.venky.swf.plugins.collab.db.model.config.State;
-import com.venky.swf.routing.Config;
 import in.succinct.beckn.Address;
 import in.succinct.beckn.Billing;
 import in.succinct.beckn.BreakUp;
 import in.succinct.beckn.BreakUp.BreakUpElement;
 import in.succinct.beckn.Catalog;
 import in.succinct.beckn.Contact;
-import in.succinct.beckn.Context;
 import in.succinct.beckn.Descriptor;
 import in.succinct.beckn.Fulfillment;
 import in.succinct.beckn.FulfillmentStop;
@@ -41,8 +39,8 @@ import in.succinct.beckn.QuantitySummary;
 import in.succinct.beckn.Quote;
 import in.succinct.beckn.Request;
 import in.succinct.beckn.User;
+import in.succinct.bpp.woocommerce.adaptor.WooCommerceAdaptor;
 import in.succinct.bpp.woocommerce.helpers.BecknIdHelper.Entity;
-import in.succinct.bpp.shell.util.BecknUtil;
 import org.jose4j.base64url.Base64;
 import org.json.simple.JSONArray;
 import org.json.simple.JSONAware;
@@ -53,19 +51,26 @@ import java.util.HashMap;
 import java.util.Map;
 
 public class WooCommerceHelper {
+    final WooCommerceAdaptor adaptor;
+    public WooCommerceHelper(WooCommerceAdaptor adaptor){
+        this.adaptor = adaptor;
+    }
+    public WooCommerceHelper(){
+        this(null);
+    }
     public String getConfigPrefix(){
         return "in.succinct.bpp.woocommerce";
     }
 
 
     public String getStoreUrl(){
-        return Config.instance().getProperty(String.format("%s.storeUrl",getConfigPrefix()));
+        return adaptor.getConfiguration().get(String.format("%s.storeUrl",getConfigPrefix()));
     }
     public String getClientId(){
-        return Config.instance().getProperty(String.format("%s.clientId",getConfigPrefix()));
+        return adaptor.getConfiguration().get(String.format("%s.clientId",getConfigPrefix()));
     }
     public String getSecret(){
-        return Config.instance().getProperty(String.format("%s.secret",getConfigPrefix()));
+        return adaptor.getConfiguration().get(String.format("%s.secret",getConfigPrefix()));
     }
 
     public <T extends JSONAware> T woo_post(String relativeUrl, JSONObject parameter ){
@@ -117,8 +122,8 @@ public class WooCommerceHelper {
     public Provider createProvider(Providers providers) {
         Provider provider = new Provider();
         provider.setDescriptor(new Descriptor());
-        provider.getDescriptor().setName(BecknUtil.getSubscriberId());
-        provider.setId(BecknIdHelper.getBecknId(BecknUtil.getSubscriberId(), Entity.provider));
+        provider.getDescriptor().setName(adaptor.getSubscriber().getSubscriberId());
+        provider.setId(BecknIdHelper.getBecknId(adaptor.getSubscriber().getSubscriberId(), adaptor.getSubscriber().getSubscriberId(), Entity.provider));
         providers.add(provider);
         return provider;
     }
@@ -289,7 +294,7 @@ public class WooCommerceHelper {
 
     public Item createItem(Items items, JSONObject product){
         Item item  = new Item();
-        item.setId(BecknIdHelper.getBecknId(String.valueOf(product.get("id")),Entity.item));
+        item.setId(BecknIdHelper.getBecknId(String.valueOf(product.get("id")),adaptor.getSubscriber().getSubscriberId(),Entity.item));
         items.add(item);
         item.setDescriptor(new Descriptor());
         Descriptor descriptor = item.getDescriptor();
@@ -315,7 +320,7 @@ public class WooCommerceHelper {
     private void createItemFromWooLineItem(Items items, JSONObject wooLineItem) {
         Item item = new Item();
         item.setDescriptor(new Descriptor());
-        item.setId(BecknIdHelper.getBecknId(String.valueOf(wooLineItem.get("product_id")),Entity.item));
+        item.setId(BecknIdHelper.getBecknId(String.valueOf(wooLineItem.get("product_id")), adaptor.getSubscriber().getSubscriberId(), Entity.item));
         item.getDescriptor().setName((String)wooLineItem.get("name"));
         item.setQuantity(new Quantity());
         item.getQuantity().setCount(doubleTypeConverter.valueOf(wooLineItem.get("quantity")).intValue());
@@ -438,7 +443,7 @@ public class WooCommerceHelper {
 
 
         setBoBilling(order,wooOrder);
-        order.setId(BecknIdHelper.getBecknId(String.valueOf(wooOrder.get("id")),Entity.order));
+        order.setId(BecknIdHelper.getBecknId(String.valueOf(wooOrder.get("id")),adaptor.getSubscriber().getSubscriberId(),Entity.order));
         order.setState((String) wooOrder.get("status"));
         createItems(order,(JSONArray)wooOrder.get("line_items"));
 
@@ -449,7 +454,7 @@ public class WooCommerceHelper {
         order.getFulfillment().getEnd().setContact(new Contact());
         order.getFulfillment().setCustomer(new User());
         order.getFulfillment().setState(order.getState());
-        order.getFulfillment().setId(BecknIdHelper.getBecknId(String.valueOf(wooOrder.get("id")),Entity.fulfillment));
+        order.getFulfillment().setId(BecknIdHelper.getBecknId(String.valueOf(wooOrder.get("id")),adaptor.getSubscriber().getSubscriberId(),Entity.fulfillment));
 
         Locations locations = new Locations();
         createLocation(locations);
@@ -495,7 +500,8 @@ public class WooCommerceHelper {
 
 
         order.setProvider(new Provider());
-        order.getProvider().setId(BecknIdHelper.getBecknId(BecknUtil.getSubscriberId(), Entity.provider));
+        order.getProvider().setId(BecknIdHelper.getBecknId(adaptor.getSubscriber().getSubscriberId(),
+                adaptor.getSubscriber().getSubscriberId(), Entity.provider));
         order.setProviderLocation(locations.get(0));
 
 
@@ -550,31 +556,30 @@ public class WooCommerceHelper {
         String[] cs = dc.split(":");
         String  cityName = getSettings("general","woocommerce_store_city");
         if (cs.length == 2){
-            if (!ObjectUtil.equals(cs[0],BecknUtil.getCountry(2))){
-                throw new RuntimeException("Cannot take orders for country code of " + BecknUtil.getCountry(2));
-            }
+            Country country = Country.findByISO(cs[0]);
+
             String[] descriptions = getSettingsDescription("general","woocommerce_default_country",dc).split(" - ");
 
-            Country country = Database.getTable(Country.class).newRecord();
-            country.setIsoCode(BecknUtil.getCountry(3));
-            country.setIsoCode2(BecknUtil.getCountry(2));
-            country.setName(descriptions[0]);
-            country = Database.getTable(Country.class).getRefreshed(country);
-            country.save();
+            if (!ObjectUtil.equals(country.getName(),descriptions[0])){
+                country.setName(descriptions[0]);
+                country.save();
+            }
             address.setCountry(country.getName());
 
+
             State state = Database.getTable(State.class).newRecord();
-            state.setCode(cs[1]);
+            state.setCode("Unknown");
             state.setCountryId(country.getId());
-            state.setName(descriptions[1]);
             state = Database.getTable(State.class).getRefreshed(state);
-            state.save();
+            if (!state.getRawRecord().isNewRecord()){
+                state.setCode(cs[1]);
+                state.setName(descriptions[1]);
+                state.save();
+            }
             address.setState(state.getName());
 
-
-
             City city = Database.getTable(City.class).newRecord();
-            city.setCode(Config.instance().getProperty("in.succinct.bpp.woocommerce.city"));
+            city.setCode(adaptor.getConfiguration().get("in.succinct.bpp.woocommerce.city"));
             city.setStateId(state.getId());
             city.setName(cityName);
 
@@ -585,7 +590,8 @@ public class WooCommerceHelper {
         }
         address.setPinCode(getSettings("general","woocommerce_store_postcode"));
         address.setStreet(getSettings("general","woocommerce_store_address"));
-        location.setId(BecknIdHelper.getBecknId(BecknUtil.getSubscriberId(), Entity.provider_location));
+        location.setId(BecknIdHelper.getBecknId(adaptor.getSubscriber().getSubscriberId(),
+                adaptor.getSubscriber().getSubscriberId(),Entity.provider_location));
         locations.add(location);
         return location;
     }
