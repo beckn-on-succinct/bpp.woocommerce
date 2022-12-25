@@ -12,7 +12,7 @@ To install from source:
 2. Run the following command from your home directory. 
 ```
     $ curl https://raw.githubusercontent.com/venkatramanm/easy-installers/master/bpp-woo-installer.sh | bash
-    $ cd site/bpp.woocommerce
+    $ cd site/woocommerce.app
     $ cp overrideProperties/config/swf.properties.sample overrideProperties/config/swf.properties 
 ```
 ---	 
@@ -48,7 +48,7 @@ To install from source:
 ---	 
 
 4. On Woocommerce store, do the following
-	* Settings->Advanced->Webhooks and create a webhook for topic Order updated to be delivered to https://your_fully_qualified_domain/woo_commerce/hook 
+	* Settings->Advanced->Webhooks and create a webhook for topic Order updated to be delivered to https://your_fully_qualified_domain/bpp/hook 
 	* Choose the secret specified in your swf.properties against in.succinct.bpp.woocommerce.hmac.key
 ---	 
 	
