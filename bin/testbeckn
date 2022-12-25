@@ -1,1 +1,0 @@
-curl -v -H 'content-type:application/json' -H 'X-CallBackToBeSynchronized:Y' -H 'Authorization: Basic Zmlyc3RBcHA6dmVua3kxMg==' https://becknify.humbhionline.in/local_retail/beckn_open/firstApp/bap/api/bg/$1  -d @src/tests/resources/$1.json
