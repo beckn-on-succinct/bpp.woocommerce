@@ -123,7 +123,10 @@ public class WooCommerceHelper {
         Provider provider = new Provider();
         provider.setDescriptor(new Descriptor());
         provider.getDescriptor().setName(adaptor.getSubscriber().getSubscriberId());
+        provider.getDescriptor().setShortDesc(provider.getDescriptor().getName());
+        provider.getDescriptor().setLongDesc(getSettings("general","woocommerce_store_address"));
         provider.setId(BecknIdHelper.getBecknId(adaptor.getSubscriber().getSubscriberId(), adaptor.getSubscriber().getSubscriberId(), Entity.provider));
+        provider.setTtl(120);
         providers.add(provider);
         return provider;
     }
@@ -300,6 +303,9 @@ public class WooCommerceHelper {
         Descriptor descriptor = item.getDescriptor();
         descriptor.setName((String)product.get("name"));
         descriptor.setCode((String)product.get("sku"));
+        descriptor.setShortDesc((String)product.get("short_description"));
+        descriptor.setLongDesc((String)product.get("description"));
+
 
 
         Price price = new Price();
@@ -307,6 +313,7 @@ public class WooCommerceHelper {
         price.setCurrency("INR");
         price.setValue(Double.parseDouble((String)product.get("price")));
         price.setListedValue(Double.parseDouble((String)product.get("regular_price")));
+        price.setMaximumValue(price.getListedValue());
 
         descriptor.setImages(new Images());
         JSONArray images = (JSONArray) product.get("images");
@@ -322,6 +329,12 @@ public class WooCommerceHelper {
         item.setDescriptor(new Descriptor());
         item.setId(BecknIdHelper.getBecknId(String.valueOf(wooLineItem.get("product_id")), adaptor.getSubscriber().getSubscriberId(), Entity.item));
         item.getDescriptor().setName((String)wooLineItem.get("name"));
+        item.getDescriptor().setCode((String)wooLineItem.get("sku"));
+        if (ObjectUtil.isVoid(item.getDescriptor().getCode())){
+            item.getDescriptor().setCode(item.getDescriptor().getName());
+        }
+        item.getDescriptor().setLongDesc(item.getDescriptor().getName());
+        item.getDescriptor().setShortDesc(item.getDescriptor().getName());
         item.setQuantity(new Quantity());
         item.getQuantity().setCount(doubleTypeConverter.valueOf(wooLineItem.get("quantity")).intValue());
 

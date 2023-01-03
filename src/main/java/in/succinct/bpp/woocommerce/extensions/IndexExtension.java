@@ -58,5 +58,5 @@ public class IndexExtension implements Extension {
         },false);
 
     }
-    public static String CATALOG_SYNC_EVENT = "catalog_index";
+    public static String  CATALOG_SYNC_EVENT = "catalog_index";
 }

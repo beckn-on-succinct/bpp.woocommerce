@@ -29,6 +29,7 @@ import in.succinct.beckn.Provider;
 import in.succinct.beckn.Providers;
 import in.succinct.beckn.Quote;
 import in.succinct.beckn.Request;
+import in.succinct.beckn.Tags;
 import in.succinct.bpp.core.adaptor.CommerceAdaptor;
 import in.succinct.bpp.core.registry.BecknRegistry;
 import in.succinct.bpp.search.adaptor.SearchAdaptor;
@@ -110,6 +111,7 @@ public class WooCommerceAdaptor extends CommerceAdaptor {
             if (provider.getFulfillments().get(fulfillment.getId()) == null) {
                 provider.getFulfillments().add(fulfillment);
             }
+            item.setFulfillmentId(fulfillment.getId());
 
             JSONArray categories = (JSONArray) woo_product.get("categories");
             for (Object ocategory : categories){
@@ -137,7 +139,12 @@ public class WooCommerceAdaptor extends CommerceAdaptor {
             if (provider.getPayments().get(payment.getId()) == null) {
                 provider.getPayments().add(payment);
             }
-
+            item.setTags(new Tags());
+            JSONArray arr = (JSONArray) woo_product.get("meta_data");
+            for (int j = 0 ; j < arr.size() ; j ++){
+                JSONObject tag =  (JSONObject) arr.get(j);
+                item.getTags().set((String)tag.get("key"),(String)tag.get("value"));
+            }
         }
     }
 
