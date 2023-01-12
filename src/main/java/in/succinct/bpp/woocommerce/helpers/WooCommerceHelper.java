@@ -3,6 +3,7 @@ package in.succinct.bpp.woocommerce.helpers;
 import com.venky.cache.Cache;
 import com.venky.core.collections.IgnoreCaseMap;
 import com.venky.core.util.ObjectUtil;
+import com.venky.geo.GeoCoordinate;
 import com.venky.swf.db.Database;
 import com.venky.swf.db.JdbcTypeHelper.TypeConverter;
 import com.venky.swf.db.annotations.column.ui.mimes.MimeType;
@@ -12,33 +13,26 @@ import com.venky.swf.integration.api.InputFormat;
 import com.venky.swf.plugins.collab.db.model.config.City;
 import com.venky.swf.plugins.collab.db.model.config.Country;
 import com.venky.swf.plugins.collab.db.model.config.State;
-import in.succinct.beckn.Address;
-import in.succinct.beckn.Billing;
-import in.succinct.beckn.BreakUp;
-import in.succinct.beckn.BreakUp.BreakUpElement;
-import in.succinct.beckn.Catalog;
-import in.succinct.beckn.Contact;
-import in.succinct.beckn.Descriptor;
-import in.succinct.beckn.Fulfillment;
-import in.succinct.beckn.FulfillmentStop;
-import in.succinct.beckn.Images;
+import in.succinct.beckn.Message;
+import in.succinct.beckn.Request;
+import in.succinct.beckn.Providers;
 import in.succinct.beckn.Item;
 import in.succinct.beckn.Items;
-import in.succinct.beckn.Location;
-import in.succinct.beckn.Locations;
-import in.succinct.beckn.Message;
-import in.succinct.beckn.Order;
-import in.succinct.beckn.Payment;
-import in.succinct.beckn.Payment.Params;
-import in.succinct.beckn.Person;
-import in.succinct.beckn.Price;
-import in.succinct.beckn.Provider;
-import in.succinct.beckn.Providers;
-import in.succinct.beckn.Quantity;
-import in.succinct.beckn.QuantitySummary;
+import in.succinct.beckn.Images;
 import in.succinct.beckn.Quote;
-import in.succinct.beckn.Request;
+import in.succinct.beckn.Price;
+import in.succinct.beckn.Quantity;
+import in.succinct.beckn.Billing;
+import in.succinct.beckn.Locations;
+import in.succinct.beckn.Address;
 import in.succinct.beckn.User;
+import in.succinct.beckn.BreakUp;
+import in.succinct.beckn.QuantitySummary;
+import in.succinct.beckn.Time.Range;
+
+import in.succinct.beckn.BreakUp.BreakUpElement;
+import in.succinct.beckn.ondc.retail.*;
+import in.succinct.beckn.ondc.retail.Payment.Params;
 import in.succinct.bpp.woocommerce.adaptor.WooCommerceAdaptor;
 import in.succinct.bpp.woocommerce.helpers.BecknIdHelper.Entity;
 import org.jose4j.base64url.Base64;
@@ -47,6 +41,7 @@ import org.json.simple.JSONAware;
 import org.json.simple.JSONObject;
 
 import java.nio.charset.StandardCharsets;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -127,6 +122,12 @@ public class WooCommerceHelper {
         provider.getDescriptor().setLongDesc(getSettings("general","woocommerce_store_address"));
         provider.setId(BecknIdHelper.getBecknId(adaptor.getSubscriber().getSubscriberId(), adaptor.getSubscriber().getSubscriberId(), Entity.provider));
         provider.setTtl(120);
+
+        // TODO: Set values of images and symbol correctly below
+        provider.getDescriptor().setSymbol(adaptor.getSubscriber().getSubscriberId());
+        provider.getDescriptor().setImages(new Images());
+        provider.setFssaiLicenceNo("not-available");
+
         providers.add(provider);
         return provider;
     }
@@ -300,7 +301,7 @@ public class WooCommerceHelper {
         item.setId(BecknIdHelper.getBecknId(String.valueOf(product.get("id")),adaptor.getSubscriber().getSubscriberId(),Entity.item));
         items.add(item);
         item.setDescriptor(new Descriptor());
-        Descriptor descriptor = item.getDescriptor();
+        Descriptor descriptor = (Descriptor) item.getDescriptor();
         descriptor.setName((String)product.get("name"));
         descriptor.setCode((String)product.get("sku"));
         descriptor.setShortDesc((String)product.get("short_description"));
@@ -366,7 +367,7 @@ public class WooCommerceHelper {
         if (!billing.isEmpty()){
             order.put("billing",billing);
         }
-        setWooShipping(shipping,bo.getFulfillment());
+        setWooShipping(shipping,(Fulfillment) bo.getFulfillment());
         if (!shipping.isEmpty()){
             order.put("shipping",shipping);
         }
@@ -397,7 +398,7 @@ public class WooCommerceHelper {
         shipping.put("last_name", user.getPerson().getName().substring(parts[0].length()));
 
         Address address = fulfillment.getEnd().getLocation().getAddress();
-        Contact contact = fulfillment.getEnd().getContact();
+        Contact contact = (Contact) fulfillment.getEnd().getContact();
 
         Country country = Country.findByName(address.getCountry());
         State state = State.findByCountryAndName(country.getId(),address.getState());
@@ -442,7 +443,7 @@ public class WooCommerceHelper {
     public Order getBecknOrder(JSONObject wooOrder) {
         Order order = new Order();
         order.setPayment(new Payment());
-        setPayment(order.getPayment(),wooOrder);
+        setPayment((Payment) order.getPayment(),wooOrder);
         Quote quote = new Quote();
         order.setQuote(quote);
         quote.setTtl(15*60);
@@ -486,7 +487,7 @@ public class WooCommerceHelper {
 
         User user = order.getFulfillment().getCustomer();
         user.setPerson(new Person());
-        Person person = user.getPerson();
+        Person person = (Person) user.getPerson();
         person.setName(shipping.get("first_name") + " " + shipping.get("last_name"));
 
 
@@ -561,9 +562,20 @@ public class WooCommerceHelper {
     public Location createLocation(Locations locations) {
         Location location = new Location();
         Address address = new Address();
-        location.setAddress(address);
-        address.setName(getSettings("general","woocommerce_store_address"));
+        Circle circle = new Circle();
+        Scalar radius = new Scalar();
+        Time time = new Time();
+        Schedule schedule = new Schedule();
+        Range range = new Range();
 
+        location.setAddress(address);
+        location.setCircle(circle);
+        circle.setScalarRadius(radius);
+        location.setTime(time);
+        time.setSchedule(schedule);
+        time.setRange(range);
+
+        address.setName(getSettings("general","woocommerce_store_address"));
 
         String dc = getSettings("general","woocommerce_default_country");
         String[] cs = dc.split(":");
@@ -605,6 +617,21 @@ public class WooCommerceHelper {
         address.setStreet(getSettings("general","woocommerce_store_address"));
         location.setId(BecknIdHelper.getBecknId(adaptor.getSubscriber().getSubscriberId(),
                 adaptor.getSubscriber().getSubscriberId(),Entity.provider_location));
+        // TODO: Determine correct values for GPS
+        GeoCoordinate myGps = new GeoCoordinate(12.967555,77.749666);
+        location.setGps(myGps);
+        circle.setGps(myGps);
+        radius.setUnit("km");
+        radius.setValue("5");
+        schedule.setFrequency("PT4H");
+        schedule.getHolidays().add("2022-08-15");
+        schedule.getTimes().add("1000");
+        schedule.getTimes().add("1900");
+        time.setDays("1,2,3,4,5,6,7");
+        range.setStart(new Date("0900"));
+        range.setEnd(new Date("1900"));
+
+
         locations.add(location);
         return location;
     }

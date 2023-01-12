@@ -9,23 +9,23 @@ import com.venky.swf.sql.Expression;
 import com.venky.swf.sql.Operator;
 import com.venky.swf.sql.Select;
 import in.succinct.beckn.BecknStrings;
-import in.succinct.beckn.Catalog;
+import in.succinct.beckn.ondc.retail.Catalog;
 import in.succinct.beckn.Categories;
-import in.succinct.beckn.Category;
-import in.succinct.beckn.Descriptor;
-import in.succinct.beckn.Fulfillment;
+import in.succinct.beckn.ondc.retail.Category;
+import in.succinct.beckn.ondc.retail.Descriptor;
+import in.succinct.beckn.ondc.retail.Fulfillment;
 import in.succinct.beckn.Fulfillment.FulfillmentType;
 import in.succinct.beckn.Fulfillments;
 import in.succinct.beckn.Intent;
 import in.succinct.beckn.Item;
 import in.succinct.beckn.Items;
-import in.succinct.beckn.Location;
+import in.succinct.beckn.ondc.retail.Location;
 import in.succinct.beckn.Locations;
 import in.succinct.beckn.Message;
-import in.succinct.beckn.Order;
-import in.succinct.beckn.ondc.Payment;
-import in.succinct.beckn.ondc.Payments;
-import in.succinct.beckn.Provider;
+import in.succinct.beckn.ondc.retail.Order;
+import in.succinct.beckn.ondc.retail.Payment;
+import in.succinct.beckn.Payments;
+import in.succinct.beckn.ondc.retail.Provider;
 import in.succinct.beckn.Providers;
 import in.succinct.beckn.Quote;
 import in.succinct.beckn.Request;
@@ -85,6 +85,7 @@ public class WooCommerceAdaptor extends CommerceAdaptor {
         provider.setPayments(new Payments());
         provider.setCategories(new Categories());
         provider.setFulfillments(new Fulfillments());
+        //Note that descriptor is only added to response if the search adaptor is not loaded.
         catalog.setDescriptor(provider.getDescriptor());
         Location location = helper.createLocation(provider.getLocations());
 
@@ -160,7 +161,7 @@ public class WooCommerceAdaptor extends CommerceAdaptor {
 
     @Override
     public void init(Request request, Request reply) {
-        Order order = request.getMessage().getOrder();
+        Order order = (Order) request.getMessage().getOrder();
         if (order == null){
             throw new RuntimeException("No Order passed");
         }
@@ -189,7 +190,7 @@ public class WooCommerceAdaptor extends CommerceAdaptor {
 
     @Override
     public void confirm(Request request, Request reply) {
-        Order order = request.getMessage().getOrder();
+        Order order = (Order) request.getMessage().getOrder();
         if (order == null){
             throw new RuntimeException("No Order passed");
         }
@@ -235,7 +236,7 @@ public class WooCommerceAdaptor extends CommerceAdaptor {
 
     @Override
     public void cancel(Request request, Request reply) {
-        Order order = request.getMessage().getOrder();
+        Order order = (Order) request.getMessage().getOrder();
         if (order == null){
             throw new RuntimeException("No Order passed");
         }
@@ -260,7 +261,7 @@ public class WooCommerceAdaptor extends CommerceAdaptor {
 
     @Override
     public void status(Request request, Request reply) {
-        Order order = request.getMessage().getOrder();
+        Order order = (Order) request.getMessage().getOrder();
         if (order == null){
             order = new Order();
             order.setId(request.getMessage().get("order_id"));
