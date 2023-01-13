@@ -13,26 +13,27 @@ import com.venky.swf.integration.api.InputFormat;
 import com.venky.swf.plugins.collab.db.model.config.City;
 import com.venky.swf.plugins.collab.db.model.config.Country;
 import com.venky.swf.plugins.collab.db.model.config.State;
-import in.succinct.beckn.Message;
-import in.succinct.beckn.Request;
-import in.succinct.beckn.Providers;
-import in.succinct.beckn.Item;
-import in.succinct.beckn.Items;
-import in.succinct.beckn.Images;
-import in.succinct.beckn.Quote;
-import in.succinct.beckn.Price;
-import in.succinct.beckn.Quantity;
-import in.succinct.beckn.Billing;
+import in.succinct.beckn.*;
+import in.succinct.beckn.FulfillmentStop;
 import in.succinct.beckn.Locations;
-import in.succinct.beckn.Address;
-import in.succinct.beckn.User;
-import in.succinct.beckn.BreakUp;
-import in.succinct.beckn.QuantitySummary;
+import in.succinct.beckn.Person;
+import in.succinct.beckn.Providers;
 import in.succinct.beckn.Time.Range;
 
 import in.succinct.beckn.BreakUp.BreakUpElement;
 import in.succinct.beckn.ondc.retail.*;
+import in.succinct.beckn.ondc.retail.Catalog;
+import in.succinct.beckn.ondc.retail.Circle;
+import in.succinct.beckn.ondc.retail.Contact;
+import in.succinct.beckn.ondc.retail.Descriptor;
+import in.succinct.beckn.ondc.retail.Fulfillment;
+import in.succinct.beckn.ondc.retail.Item;
+import in.succinct.beckn.ondc.retail.Location;
+import in.succinct.beckn.ondc.retail.Order;
+import in.succinct.beckn.ondc.retail.Payment;
 import in.succinct.beckn.ondc.retail.Payment.Params;
+import in.succinct.beckn.ondc.retail.Provider;
+import in.succinct.beckn.ondc.retail.Time;
 import in.succinct.bpp.woocommerce.adaptor.WooCommerceAdaptor;
 import in.succinct.bpp.woocommerce.helpers.BecknIdHelper.Entity;
 import org.jose4j.base64url.Base64;
@@ -187,9 +188,8 @@ public class WooCommerceHelper {
         };
 
 
-
         for (int i = 0 ; i < inItems.size() ; i ++ ){
-            Item inItem = inItems.get(i);
+            Item inItem = (Item) inItems.get(i);
             Item outItem = new Item();
             outItem.setId(inItem.getId());
 
@@ -300,27 +300,44 @@ public class WooCommerceHelper {
         Item item  = new Item();
         item.setId(BecknIdHelper.getBecknId(String.valueOf(product.get("id")),adaptor.getSubscriber().getSubscriberId(),Entity.item));
         items.add(item);
+
         item.setDescriptor(new Descriptor());
         Descriptor descriptor = (Descriptor) item.getDescriptor();
         descriptor.setName((String)product.get("name"));
-        descriptor.setCode((String)product.get("sku"));
+        //descriptor.setCode((String)product.get("sku"));
         descriptor.setShortDesc((String)product.get("short_description"));
         descriptor.setLongDesc((String)product.get("description"));
+        descriptor.setSymbol("https://abc.com/images/18275/18275_ONDC_1650967420207.png");
+        descriptor.setImages(new Images());
+        JSONArray images = (JSONArray) product.get("images");
+        // TODO: Restrict size to 5 images per ONDC
+        for (int i = 0 ; i< images.size() ;i ++){
+            descriptor.getImages().add((String) ((JSONObject)images.get(i)).get("src"));
+        }
 
-
+        item.setItemQuantity(new ItemQuantity());
+        ItemQuantityType iQuantity = new ItemQuantityType();
+        iQuantity.setCount(10);
+        item.getItemQuantity().setAvailable(iQuantity);
+        item.getItemQuantity().setMaximum(iQuantity);
 
         Price price = new Price();
         item.setPrice(price);
         price.setCurrency("INR");
         price.setValue(Double.parseDouble((String)product.get("price")));
-        price.setListedValue(Double.parseDouble((String)product.get("regular_price")));
+        //price.setListedValue(Double.parseDouble((String)product.get("regular_price")));
         price.setMaximumValue(price.getListedValue());
 
-        descriptor.setImages(new Images());
-        JSONArray images = (JSONArray) product.get("images");
-        for (int i = 0 ; i< images.size() ;i ++){
-            descriptor.getImages().add((String) ((JSONObject)images.get(i)).get("src"));
-        }
+        item.setReturnable(false);
+        item.setCancellable(false);
+        // TODO Fix the commented lines
+        //item.setReturnWindow(new Date("P7D"));
+        //item.setTimeToShip(new Date("PT45M"));
+        item.setAvailableOnCod(false);
+        item.setContactDetailsConsumerCare("Address");
+
+        // TODO Implement additional fields based on Top level category
+
         return item;
 
     }
@@ -624,13 +641,16 @@ public class WooCommerceHelper {
         radius.setUnit("km");
         radius.setValue("5");
         schedule.setFrequency("PT4H");
+        schedule.setHolidays(new BecknStrings());
         schedule.getHolidays().add("2022-08-15");
+        /*
+        schedule.setTimes(new BecknStrings());
         schedule.getTimes().add("1000");
         schedule.getTimes().add("1900");
         time.setDays("1,2,3,4,5,6,7");
         range.setStart(new Date("0900"));
         range.setEnd(new Date("1900"));
-
+        */
 
         locations.add(location);
         return location;

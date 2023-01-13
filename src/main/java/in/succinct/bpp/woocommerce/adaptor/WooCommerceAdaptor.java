@@ -8,28 +8,26 @@ import com.venky.swf.plugins.beckn.messaging.Subscriber;
 import com.venky.swf.sql.Expression;
 import com.venky.swf.sql.Operator;
 import com.venky.swf.sql.Select;
-import in.succinct.beckn.BecknStrings;
-import in.succinct.beckn.ondc.retail.Catalog;
+import in.succinct.beckn.*;
 import in.succinct.beckn.Categories;
+import in.succinct.beckn.Fulfillments;
+import in.succinct.beckn.Locations;
+import in.succinct.beckn.Payments;
+import in.succinct.beckn.Providers;
+import in.succinct.beckn.Tags;
+import in.succinct.beckn.ondc.retail.*;
+import in.succinct.beckn.Fulfillment.FulfillmentType;
+import in.succinct.beckn.ondc.retail.Catalog;
 import in.succinct.beckn.ondc.retail.Category;
+import in.succinct.beckn.ondc.retail.Contact;
 import in.succinct.beckn.ondc.retail.Descriptor;
 import in.succinct.beckn.ondc.retail.Fulfillment;
-import in.succinct.beckn.Fulfillment.FulfillmentType;
-import in.succinct.beckn.Fulfillments;
-import in.succinct.beckn.Intent;
-import in.succinct.beckn.Item;
-import in.succinct.beckn.Items;
+import in.succinct.beckn.ondc.retail.Item;
+import in.succinct.beckn.ondc.retail.ItemQuantity;
 import in.succinct.beckn.ondc.retail.Location;
-import in.succinct.beckn.Locations;
-import in.succinct.beckn.Message;
 import in.succinct.beckn.ondc.retail.Order;
 import in.succinct.beckn.ondc.retail.Payment;
-import in.succinct.beckn.Payments;
 import in.succinct.beckn.ondc.retail.Provider;
-import in.succinct.beckn.Providers;
-import in.succinct.beckn.Quote;
-import in.succinct.beckn.Request;
-import in.succinct.beckn.Tags;
 import in.succinct.bpp.core.adaptor.CommerceAdaptor;
 import in.succinct.bpp.core.registry.BecknRegistry;
 import in.succinct.bpp.search.adaptor.SearchAdaptor;
@@ -84,10 +82,29 @@ public class WooCommerceAdaptor extends CommerceAdaptor {
         provider.setLocations(new Locations());
         provider.setPayments(new Payments());
         provider.setCategories(new Categories());
-        provider.setFulfillments(new Fulfillments());
+
+        // Populate catalog level fulfillments
+        Fulfillments cFulfillments = new Fulfillments();
+        catalog.setFulfillments(cFulfillments);
+        Fulfillment cFulfillment = new Fulfillment();
+        cFulfillment.setFulfillmentType("Delivery");
+        cFulfillment.setId("1");
+        cFulfillments.add(cFulfillment);
+
         //Note that descriptor is only added to response if the search adaptor is not loaded.
         catalog.setDescriptor(provider.getDescriptor());
         Location location = helper.createLocation(provider.getLocations());
+
+        // Populate provider level fulfillments
+        Fulfillments pFulfillments = new Fulfillments();
+        Fulfillment pFulfillment = new Fulfillment();
+        Contact fContact = new Contact();
+        fContact.setPhone("9886098860");
+        fContact.setEmail("abc@xyz.com");
+        pFulfillment.setContact(fContact);
+        pFulfillment.setId("1");
+        pFulfillments.add(pFulfillment);
+        provider.setFulfillments(pFulfillments);
 
         Items items = helper.createItems(provider);
 
@@ -97,32 +114,44 @@ public class WooCommerceAdaptor extends CommerceAdaptor {
         for (int i = 0 ; i < woo_products.size() ; i ++){
             JSONObject woo_product = (JSONObject) woo_products.get(i);
             Item item = helper.createItem(items,woo_product);
+
             item.setLocationId(location.getId());
+            /* Item level locationIds is not required
             item.setLocationIds(new BecknStrings());
             item.getLocationIds().add(location.getId());
             if (provider.getLocations().get(location.getId()) == null) {
                 provider.getLocations().add(location);
             }
+            */
 
+            /* Item level fulfillments is not required.
             Fulfillment fulfillment =new Fulfillment();
             fulfillment.setId(FulfillmentType.store_pickup.toString());
             fulfillment.setType(FulfillmentType.store_pickup);
+            */
+
+            /* Item level fulfillmentIds is not required
             item.setFulfillmentIds(new BecknStrings());
-            item.getFulfillmentIds().add(fulfillment.getId());
-            if (provider.getFulfillments().get(fulfillment.getId()) == null) {
-                provider.getFulfillments().add(fulfillment);
+            item.getFulfillmentIds().add(cFulfillment.getId());
+            if (provider.getFulfillments().get(cFulfillment.getId()) == null) {
+                provider.getFulfillments().add(cFulfillment);
             }
-            item.setFulfillmentId(fulfillment.getId());
+            */
+            item.setFulfillmentId(cFulfillment.getId());
 
             JSONArray categories = (JSONArray) woo_product.get("categories");
             for (Object ocategory : categories){
                 JSONObject wooCategory = (JSONObject) ocategory;
                 Category category= new Category();
                 category.setId(StringUtil.valueOf(wooCategory.get("id")));
+
+                /* Category level descriptor is not required.
                 category.setDescriptor(new Descriptor());
                 category.getDescriptor().setName((String)wooCategory.get("name"));
                 category.getDescriptor().setCode((String)wooCategory.get("slug"));
+                */
 
+                /* CategoryId is not an array in ONDC
                 if (provider.getCategories().get(category.getId()) == null) {
                     provider.getCategories().add(category);
                 }
@@ -130,7 +159,11 @@ public class WooCommerceAdaptor extends CommerceAdaptor {
                     item.setCategoryIds(new BecknStrings());
                 }
                 item.getCategoryIds().add(category.getId());
+                */
+                item.setCategoryId(category.getId());
             }
+
+            /* Item level paymentIds is not required.
             item.setPaymentIds(new BecknStrings());
             Payment payment = new Payment();
             payment.setType("POST-FULFILLMENT");
@@ -140,12 +173,16 @@ public class WooCommerceAdaptor extends CommerceAdaptor {
             if (provider.getPayments().get(payment.getId()) == null) {
                 provider.getPayments().add(payment);
             }
+            */
+
             item.setTags(new Tags());
             JSONArray arr = (JSONArray) woo_product.get("meta_data");
             for (int j = 0 ; j < arr.size() ; j ++){
                 JSONObject tag =  (JSONObject) arr.get(j);
                 item.getTags().set((String)tag.get("key"),(String)tag.get("value"));
             }
+
+
         }
     }
 
