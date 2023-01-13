@@ -325,18 +325,19 @@ public class WooCommerceHelper {
         item.setPrice(price);
         price.setCurrency("INR");
         price.setValue(Double.parseDouble((String)product.get("price")));
-        //price.setListedValue(Double.parseDouble((String)product.get("regular_price")));
+        // Not required for ONDC
+        // price.setListedValue(Double.parseDouble((String)product.get("regular_price")));
         price.setMaximumValue(price.getListedValue());
 
         item.setReturnable(false);
         item.setCancellable(false);
-        // TODO Fix the commented lines
-        //item.setReturnWindow(new Date("P7D"));
-        //item.setTimeToShip(new Date("PT45M"));
+        item.setReturnWindow("P7D");
+        item.setTimeToShip("PT45M");
         item.setAvailableOnCod(false);
         item.setContactDetailsConsumerCare("Address");
 
         // TODO Implement additional fields based on Top level category
+        // One approach is to map WooCommerce category to corresponding ONDC Category in this adaptor
 
         return item;
 
@@ -643,7 +644,8 @@ public class WooCommerceHelper {
         schedule.setFrequency("PT4H");
         schedule.setHolidays(new BecknStrings());
         schedule.getHolidays().add("2022-08-15");
-        /*
+
+        /* TODO: Fix below code & uncomment
         schedule.setTimes(new BecknStrings());
         schedule.getTimes().add("1000");
         schedule.getTimes().add("1900");

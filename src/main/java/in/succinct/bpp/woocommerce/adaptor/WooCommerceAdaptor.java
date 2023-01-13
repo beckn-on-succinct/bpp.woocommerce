@@ -143,7 +143,8 @@ public class WooCommerceAdaptor extends CommerceAdaptor {
             for (Object ocategory : categories){
                 JSONObject wooCategory = (JSONObject) ocategory;
                 Category category= new Category();
-                category.setId(StringUtil.valueOf(wooCategory.get("id")));
+                // TODO: SetID based on properties file
+                category.setId("Home Decor");
 
                 /* Category level descriptor is not required.
                 category.setDescriptor(new Descriptor());
@@ -159,9 +160,13 @@ public class WooCommerceAdaptor extends CommerceAdaptor {
                     item.setCategoryIds(new BecknStrings());
                 }
                 item.getCategoryIds().add(category.getId());
-                */
                 item.setCategoryId(category.getId());
+                */
             }
+            Category category= new Category();
+            // TODO: SetID based on properties file
+            category.setId("Home Decor");
+            item.setCategoryId(category.getId());
 
             /* Item level paymentIds is not required.
             item.setPaymentIds(new BecknStrings());
