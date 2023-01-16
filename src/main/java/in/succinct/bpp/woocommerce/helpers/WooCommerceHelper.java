@@ -42,6 +42,8 @@ import org.json.simple.JSONAware;
 import org.json.simple.JSONObject;
 
 import java.nio.charset.StandardCharsets;
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
@@ -310,7 +312,7 @@ public class WooCommerceHelper {
         descriptor.setSymbol("https://abc.com/images/18275/18275_ONDC_1650967420207.png");
         descriptor.setImages(new Images());
         JSONArray images = (JSONArray) product.get("images");
-        // TODO: Restrict size to 5 images per ONDC
+        // FIXME: Restrict size to 5 images per ONDC
         for (int i = 0 ; i< images.size() ;i ++){
             descriptor.getImages().add((String) ((JSONObject)images.get(i)).get("src"));
         }
@@ -336,7 +338,7 @@ public class WooCommerceHelper {
         item.setAvailableOnCod(false);
         item.setContactDetailsConsumerCare("Address");
 
-        // TODO Implement additional fields based on Top level category
+        // FIXME: Implement additional fields based on Top level category
         // One approach is to map WooCommerce category to corresponding ONDC Category in this adaptor
 
         return item;
@@ -635,7 +637,7 @@ public class WooCommerceHelper {
         address.setStreet(getSettings("general","woocommerce_store_address"));
         location.setId(BecknIdHelper.getBecknId(adaptor.getSubscriber().getSubscriberId(),
                 adaptor.getSubscriber().getSubscriberId(),Entity.provider_location));
-        // TODO: Determine correct values for GPS
+        // FIXME: Determine correct values for GPS
         GeoCoordinate myGps = new GeoCoordinate(12.967555,77.749666);
         location.setGps(myGps);
         circle.setGps(myGps);
@@ -645,14 +647,19 @@ public class WooCommerceHelper {
         schedule.setHolidays(new BecknStrings());
         schedule.getHolidays().add("2022-08-15");
 
-        /* TODO: Fix below code & uncomment
         schedule.setTimes(new BecknStrings());
         schedule.getTimes().add("1000");
         schedule.getTimes().add("1900");
         time.setDays("1,2,3,4,5,6,7");
-        range.setStart(new Date("0900"));
-        range.setEnd(new Date("1900"));
-        */
+        //FIXME: Fix below code so that range returns only hh:mm
+        SimpleDateFormat worktimeformatter = new SimpleDateFormat("hh:mm");
+        try {
+            range.setStart(worktimeformatter.parse("10:00"));
+            range.setEnd(worktimeformatter.parse("19:00"));
+        } catch (ParseException pe) {
+            pe.printStackTrace();
+        }
+
 
         locations.add(location);
         return location;
