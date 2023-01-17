@@ -213,9 +213,10 @@ public class WooCommerceHelper {
 
 
             double configured_price  = Double.parseDouble((String)inventory.get("price")) ;
-            double tax = isTaxIncludedInPrice() ? configured_price / (1 + taxRate/100.0) * taxRate : configured_price * taxRate;
+            double tax = isTaxIncludedInPrice() ? configured_price / (1 + taxRate/100.0) * ( taxRate  / 100.0) : configured_price * taxRate / 100.0;
             double current_price = isTaxIncludedInPrice() ? configured_price - tax : configured_price;
             double regular_price = Double.parseDouble((String)inventory.get("regular_price"));
+            regular_price = isTaxIncludedInPrice() ? regular_price / (1 + taxRate/100.0 ) : regular_price;
 
 
             Price price = new Price();
