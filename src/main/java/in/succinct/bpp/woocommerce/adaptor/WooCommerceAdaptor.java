@@ -208,7 +208,7 @@ public class WooCommerceAdaptor extends CommerceAdaptor {
 
     @Override
     public void init(Request request, Request reply) {
-        Order order = (Order) request.getMessage().getOrder();
+        Order order = request.getMessage().getOrder().cast(Order.class);
         if (order == null){
             throw new RuntimeException("No Order passed");
         }
@@ -230,6 +230,7 @@ public class WooCommerceAdaptor extends CommerceAdaptor {
         message.setOrder(helper.getBecknOrder(outOrder));
         BecknOrderMeta becknOrderMeta = Database.getTable(BecknOrderMeta.class).newRecord();
         becknOrderMeta.setBecknTransactionId(request.getContext().getTransactionId());
+        becknOrderMeta = Database.getTable(BecknOrderMeta.class).getRefreshed(becknOrderMeta);
         becknOrderMeta.setWooCommerceOrderId(StringUtil.valueOf(outOrder.get("id")));
         becknOrderMeta.save();
 

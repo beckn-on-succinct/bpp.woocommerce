@@ -484,7 +484,7 @@ public class WooCommerceHelper {
     public Order getBecknOrder(JSONObject wooOrder) {
         Order order = new Order();
         order.setPayment(new Payment());
-        setPayment((Payment) order.getPayment(),wooOrder);
+        setPayment(order.getPayment().cast(Payment.class),wooOrder);
         Quote quote = new Quote();
         order.setQuote(quote);
         quote.setTtl(15*60);
