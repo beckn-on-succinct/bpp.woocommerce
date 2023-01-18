@@ -15,12 +15,13 @@ import com.venky.swf.plugins.collab.db.model.config.Country;
 import com.venky.swf.plugins.collab.db.model.config.State;
 import in.succinct.beckn.*;
 import in.succinct.beckn.FulfillmentStop;
+import in.succinct.beckn.Fulfillments;
 import in.succinct.beckn.Locations;
 import in.succinct.beckn.Person;
 import in.succinct.beckn.Providers;
 import in.succinct.beckn.Time.Range;
 
-import in.succinct.beckn.BreakUp.BreakUpElement;
+import in.succinct.beckn.ondc.retail.BreakupElement;
 import in.succinct.beckn.ondc.retail.*;
 import in.succinct.beckn.ondc.retail.Catalog;
 import in.succinct.beckn.ondc.retail.Circle;
@@ -164,14 +165,23 @@ public class WooCommerceHelper {
         quote.setPrice(orderPrice);
         quote.setBreakUp(breakUp);
 
-        BreakUpElement product_total = breakUp.createElement("item","Product Total", new Price());
-        BreakUpElement product_tax_total = breakUp.createElement("item","Product Tax", new Price());
-        BreakUpElement shipping_total = breakUp.createElement("fulfillment","Shipping Total", new Price());
-        BreakUpElement shipping_tax_total = breakUp.createElement("fulfillment","Shipping Tax", new Price());
-        breakUp.add(product_total);
-        breakUp.add(product_tax_total);
+        //BreakUpElement product_total = breakUp.createElement("item","Product Total", new Price());
+        BreakupElement shipping_total = breakUp.createElement("fulfillment","Delivery Charges", new Price()).cast(BreakupElement.class);
+        // Grocery does not expect Taxes to be shown, they must be shown only for F&B
+        //BreakUpElement product_tax_total = breakUp.createElement("item","Tax", new Price());
+        //BreakUpElement shipping_tax_total = breakUp.createElement("fulfillment","Shipping Tax", new Price());
+
+        shipping_total.setTitleType("delivery");
+        // FIXME dont rely only on 0th element
+        shipping_total.setItemId(order.getFulfillments().get(0).getId());
+        Price stp = shipping_total.get(Price.class,"price");
+        stp.setCurrency("INR");
+        //p.setListedValue(p.getListedValue() + price.getListedValue());
+        //p.setOfferedValue(p.getOfferedValue() + price.getOfferedValue());
+        stp.setValue(30);
         breakUp.add(shipping_total);
-        breakUp.add(shipping_tax_total);
+        //breakUp.add(product_tax_total);
+        //breakUp.add(shipping_tax_total);
 
         Map<String,Double> taxRateMap = new Cache<String, Double>() {
             @Override
@@ -189,20 +199,29 @@ public class WooCommerceHelper {
             }
         };
 
+        orderPrice.setValue(shipping_total.get(Price.class,"price").getValue() );
 
         for (int i = 0 ; i < inItems.size() ; i ++ ){
-            Item inItem = (Item) inItems.get(i);
+            Item inItem = inItems.get(i).cast(Item.class);
             Item outItem = new Item();
-            outItem.setId(inItem.getId());
+            Item outBreakupItem = new Item();
 
             String localId = BecknIdHelper.getLocalUniqueId(inItem.getId(), Entity.item);
 
+            // FIXME Use Product title instead of Product ID
+            BreakupElement breakup_product = breakUp.createElement("item", inItem.getId(), new Price()).cast(BreakupElement.class);
+
             Quantity quantity = inItem.get(Quantity.class,"quantity");
+            breakup_product.setItemQuantity(quantity);
+            breakup_product.setTitleType("item");
+            breakup_product.setItemId(inItem.getId());
+            breakup_product.setItem(outBreakupItem);
 
-
-            QuantitySummary outQuantity = new QuantitySummary();
-            outItem.set("quantity",outQuantity);
-            outQuantity.setSelected(quantity);
+            ItemQuantity iQuantity = new ItemQuantity();
+            iQuantity.setAvailable(quantity);
+            iQuantity.setMaximum(quantity);
+            // FIXME Should be taken from item cache instead
+            outBreakupItem.setItemQuantity(iQuantity);
 
             JSONObject inventory = woo_get("/products/"+localId,new JSONObject());
 
@@ -214,38 +233,40 @@ public class WooCommerceHelper {
             double taxRate = taxRateMap.get(taxClass);
 
 
-
             double configured_price  = Double.parseDouble((String)inventory.get("price")) ;
             double tax = isTaxIncludedInPrice() ? configured_price / (1 + taxRate/100.0) * taxRate : configured_price * taxRate;
             double current_price = isTaxIncludedInPrice() ? configured_price - tax : configured_price;
             double regular_price = Double.parseDouble((String)inventory.get("regular_price"));
 
-
             Price price = new Price();
-            outItem.setPrice(price);
+            //outItem.setPrice(price);
             price.setCurrency("INR");
-            price.setListedValue(regular_price * quantity.getCount());
-            price.setOfferedValue(current_price * quantity.getCount());
+            //price.setListedValue(regular_price * quantity.getCount());
+            //price.setOfferedValue(current_price * quantity.getCount());
             price.setValue(current_price * quantity.getCount());
 
-            Price p = product_total.get(Price.class,"price");
+            Price p = breakup_product.get(Price.class,"price");
             p.setCurrency("INR");
-            p.setListedValue(p.getListedValue() + price.getListedValue());
-            p.setOfferedValue(p.getOfferedValue() + price.getOfferedValue());
+            //p.setListedValue(p.getListedValue() + price.getListedValue());
+            //p.setOfferedValue(p.getOfferedValue() + price.getOfferedValue());
             p.setValue(p.getValue() + price.getValue());
+            // FIXME Should be per quantity price instead
+            outBreakupItem.setPrice(breakup_product.getItem().getPrice());
 
-            Price t = product_tax_total.get(Price.class,"price");
-            t.setCurrency("INR");
-            t.setValue(t.getValue() + tax * quantity.getCount());
+            //Price t = product_tax_total.get(Price.class,"price");
+            //t.setCurrency("INR");
+            //t.setValue(t.getValue() + tax * quantity.getCount());
 
-
+            outItem.setId(inItem.getId());
+            outItem.setFulfillmentId(order.getFulfillments().get(0).getId());
             items.add(outItem);
+            breakUp.add(breakup_product);
+            orderPrice.setValue(orderPrice.getValue() + breakup_product.get(Price.class,"price").getValue() );
         }
 
-
-        orderPrice.setListedValue(product_total.get(Price.class,"price").getListedValue() );
-        orderPrice.setOfferedValue(product_total.get(Price.class,"price").getOfferedValue() );
-        orderPrice.setValue(product_total.get(Price.class,"price").getValue()  + product_tax_total.get(Price.class,"price").getValue() );
+        //orderPrice.setListedValue(product_total.get(Price.class,"price").getListedValue() );
+        //orderPrice.setOfferedValue(product_total.get(Price.class,"price").getOfferedValue() );
+        //orderPrice.setValue(breakup_product.get(Price.class,"price").getValue()  + product_tax_total.get(Price.class,"price").getValue() );
         orderPrice.setCurrency("INR");
         quote.setTtl(15L*60L); //15 minutes.
 
@@ -318,7 +339,7 @@ public class WooCommerceHelper {
         }
 
         item.setItemQuantity(new ItemQuantity());
-        ItemQuantityType iQuantity = new ItemQuantityType();
+        Quantity iQuantity = new Quantity();
         iQuantity.setCount(10);
         item.getItemQuantity().setAvailable(iQuantity);
         item.getItemQuantity().setMaximum(iQuantity);
@@ -471,7 +492,7 @@ public class WooCommerceHelper {
         quote.getPrice().setValue(order.getPayment().getParams().getAmount());
         quote.getPrice().setCurrency(order.getPayment().getParams().getCurrency());
         quote.setBreakUp(new BreakUp());
-        BreakUpElement element = quote.getBreakUp().createElement("item","Total Product",quote.getPrice());
+        BreakupElement element = quote.getBreakUp().createElement("item","Total Product",quote.getPrice()).cast(BreakupElement.class);
         quote.getBreakUp().add(element);
         //Delivery breakup to be filled.
 
@@ -663,5 +684,25 @@ public class WooCommerceHelper {
 
         locations.add(location);
         return location;
+    }
+
+    public Fulfillments createFulfillments(Order outOrder) {
+        Fulfillments outFulfillments = new Fulfillments();
+        Fulfillment outFulfillment = new Fulfillment();
+        outFulfillment.setId("Fulfillment1");
+        // For Self ship (not using ONDC Logistics) Logistics provider can be the Retail Provider.
+        // FIXME Use set value from Provider than hard code
+        outFulfillment.setProviderName("Glasshopper");
+        outFulfillment.setTracking(false);
+        outFulfillment.setCategory("Standard Delivery");
+        outFulfillment.setTAT("PT360M");
+        in.succinct.beckn.ondc.retail.State fState = new in.succinct.beckn.ondc.retail.State();
+        outFulfillment.setState(fState);
+        Descriptor stateDescriptor = new Descriptor();
+        fState.setDescriptor(stateDescriptor);
+        stateDescriptor.setName("Serviceable");
+        outFulfillments.add(outFulfillment);
+        outOrder.setFulfillments(outFulfillments);
+        return outFulfillments;
     }
 }

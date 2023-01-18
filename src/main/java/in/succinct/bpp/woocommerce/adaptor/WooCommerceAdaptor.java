@@ -193,11 +193,16 @@ public class WooCommerceAdaptor extends CommerceAdaptor {
 
     @Override
     public void select(Request request, Request response) {
+        Order inOrder = request.getMessage().getOrder().cast(Order.class);
+
         Message message = helper.createMessage(response);
         Order outOrder = helper.createOrder(message);
+        Provider outProvider = new Provider();
+        outOrder.setProvider(outProvider);
+        outProvider.setId(inOrder.getProvider().getId());
         Quote quote = helper.createQuote(outOrder);
-        Items outItems = helper.createItems(outOrder,request.getMessage().getOrder().getItems());
-
+        Fulfillments outFulfillments = helper.createFulfillments(outOrder);
+        Items outItems = helper.createItems(outOrder,inOrder.getItems());
 
     }
 
