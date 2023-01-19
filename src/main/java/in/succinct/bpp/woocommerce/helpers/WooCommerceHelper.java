@@ -487,7 +487,7 @@ public class WooCommerceHelper {
         setPayment(order.getPayment().cast(Payment.class),wooOrder);
         Quote quote = new Quote();
         order.setQuote(quote);
-        quote.setTtl(15*60);
+        //quote.setTtl(15*60);
         quote.setPrice(new Price());
         quote.getPrice().setValue(order.getPayment().getParams().getAmount());
         quote.getPrice().setCurrency(order.getPayment().getParams().getCurrency());
@@ -570,7 +570,27 @@ public class WooCommerceHelper {
         }else {
             payment.setStatus("PAID");
         }
-        payment.setType("POST-FULFILLMENT");
+        payment.setType("ON-ORDER");
+        payment.setCollectedBy("BPP");
+        payment.setBuyerAppFinderFeeType("Percent");
+        // FIXME Change this value to what is sent in init
+        payment.setBuyerAppFinderFeeAmount(3);
+        payment.setWithholdingAmount(0);
+        payment.setReturnWindow("P1D");
+        payment.setSettlementBasis("Collection");
+        payment.setSettlementWindow("P2D");
+        SettlementDetail stl_details = new SettlementDetail();
+        payment.setSettlementDetails(stl_details);
+        stl_details.setSettlementCounterparty("seller-app");
+        stl_details.setSettlementPhase("sale-amount");
+        stl_details.setSettlementType("upi");
+        stl_details.setUpiAddress("abc@okupi");
+        stl_details.setSettlementBankAccountNo("XXXXXXXXXX");
+        stl_details.setSettlementIfscCode("XXXXXXXXXX");
+        stl_details.setBeneficiaryName("Glasshopper");
+        stl_details.setBankName("SBI Bank");
+        stl_details.setBranchName("Jayanagar");
+        
         payment.setParams(new Params());
         payment.getParams().setCurrency(getSettings("general","woocommerce_currency"));
         payment.getParams().setAmount(doubleTypeConverter.valueOf(wooOrder.get("total")));
@@ -663,7 +683,7 @@ public class WooCommerceHelper {
         location.setGps(myGps);
         circle.setGps(myGps);
         radius.setUnit("km");
-        radius.setValue("5");
+        radius.setValue(5);
         schedule.setFrequency("PT4H");
         schedule.setHolidays(new BecknStrings());
         schedule.getHolidays().add("2022-08-15");
