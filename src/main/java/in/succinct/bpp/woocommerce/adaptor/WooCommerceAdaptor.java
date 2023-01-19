@@ -224,10 +224,12 @@ public class WooCommerceAdaptor extends CommerceAdaptor {
             metaArray.add(meta);
         }
 
+        // FIXME If the Woocommerce call fails, ensure that response is sent back with correct errors to BAP
         JSONObject outOrder = helper.woo_post("/orders", wooOrder);
 
         Message message = helper.createMessage(reply);
         message.setOrder(helper.getBecknOrder(outOrder));
+        // FIXME Add Tags to do outOrder per ONDC spec
         BecknOrderMeta becknOrderMeta = Database.getTable(BecknOrderMeta.class).newRecord();
         becknOrderMeta.setBecknTransactionId(request.getContext().getTransactionId());
         becknOrderMeta = Database.getTable(BecknOrderMeta.class).getRefreshed(becknOrderMeta);

@@ -14,11 +14,11 @@ import com.venky.swf.plugins.collab.db.model.config.City;
 import com.venky.swf.plugins.collab.db.model.config.Country;
 import com.venky.swf.plugins.collab.db.model.config.State;
 import in.succinct.beckn.*;
-import in.succinct.beckn.FulfillmentStop;
 import in.succinct.beckn.Fulfillments;
 import in.succinct.beckn.Locations;
 import in.succinct.beckn.Person;
 import in.succinct.beckn.Providers;
+import in.succinct.beckn.Tags;
 import in.succinct.beckn.Time.Range;
 
 import in.succinct.beckn.ondc.retail.BreakupElement;
@@ -28,6 +28,7 @@ import in.succinct.beckn.ondc.retail.Circle;
 import in.succinct.beckn.ondc.retail.Contact;
 import in.succinct.beckn.ondc.retail.Descriptor;
 import in.succinct.beckn.ondc.retail.Fulfillment;
+import in.succinct.beckn.ondc.retail.FulfillmentStop;
 import in.succinct.beckn.ondc.retail.Item;
 import in.succinct.beckn.ondc.retail.Location;
 import in.succinct.beckn.ondc.retail.Order;
@@ -279,6 +280,29 @@ public class WooCommerceHelper {
         for (int i = 0 ;i < line_items.size() ; i ++ ){
             JSONObject lineItem = (JSONObject) line_items.get(i);
             createItemFromWooLineItem(items,lineItem);
+
+            Item outItem = items.get(i).cast(Item.class);
+            // FIXME Assign value from order object.
+            outItem.setFulfillmentId("Fulfillment1");
+
+            BreakUp breakUp = order.getQuote().getBreakUp();
+            BreakupElement breakup_product = breakUp.createElement("item", outItem.getId(), new Price()).cast(BreakupElement.class);
+
+            Quantity quantity = outItem.get(Quantity.class,"quantity");
+            breakup_product.setItemQuantity(quantity);
+            breakup_product.setTitleType("item");
+            breakup_product.setItemId(outItem.getId());
+            //breakup_product.setItem(outBreakupItem);
+
+            Price p = breakup_product.get(Price.class,"price");
+            p.setCurrency("INR");
+            p.setValue(p.getValue() + doubleTypeConverter.valueOf(lineItem.get("total")));
+
+            ItemQuantity iQuantity = new ItemQuantity();
+            iQuantity.setAvailable(quantity);
+            iQuantity.setMaximum(quantity);
+
+            breakUp.add(breakup_product);
         }
 
     }
@@ -368,8 +392,11 @@ public class WooCommerceHelper {
 
     private void createItemFromWooLineItem(Items items, JSONObject wooLineItem) {
         Item item = new Item();
-        item.setDescriptor(new Descriptor());
         item.setId(BecknIdHelper.getBecknId(String.valueOf(wooLineItem.get("product_id")), adaptor.getSubscriber().getSubscriberId(), Entity.item));
+        item.setQuantity(new Quantity());
+        item.getQuantity().setCount(doubleTypeConverter.valueOf(wooLineItem.get("quantity")).intValue());
+        /*
+        item.setDescriptor(new Descriptor());
         item.getDescriptor().setName((String)wooLineItem.get("name"));
         item.getDescriptor().setCode((String)wooLineItem.get("sku"));
         if (ObjectUtil.isVoid(item.getDescriptor().getCode())){
@@ -377,8 +404,7 @@ public class WooCommerceHelper {
         }
         item.getDescriptor().setLongDesc(item.getDescriptor().getName());
         item.getDescriptor().setShortDesc(item.getDescriptor().getName());
-        item.setQuantity(new Quantity());
-        item.getQuantity().setCount(doubleTypeConverter.valueOf(wooLineItem.get("quantity")).intValue());
+
 
         Price price = new Price();
         item.setPrice(price);
@@ -386,6 +412,7 @@ public class WooCommerceHelper {
         price.setListedValue(doubleTypeConverter.valueOf(wooLineItem.get("subtotal")));
         price.setValue(doubleTypeConverter.valueOf(wooLineItem.get("total")));
         price.setCurrency("INR");
+        */
         items.add(item);
 
 
@@ -491,33 +518,46 @@ public class WooCommerceHelper {
         quote.setPrice(new Price());
         quote.getPrice().setValue(order.getPayment().getParams().getAmount());
         quote.getPrice().setCurrency(order.getPayment().getParams().getCurrency());
-        quote.setBreakUp(new BreakUp());
-        BreakupElement element = quote.getBreakUp().createElement("item","Total Product",quote.getPrice()).cast(BreakupElement.class);
-        quote.getBreakUp().add(element);
-        //Delivery breakup to be filled.
-
+        BreakUp breakUp = new BreakUp();
+        quote.setBreakUp(breakUp);
+        BreakupElement shipping_total = breakUp.createElement("fulfillment","Delivery Charges", new Price()).cast(BreakupElement.class);
+        shipping_total.setTitleType("delivery");
+        // FIXME don't rely only on 0th element
+        shipping_total.setItemId(BecknIdHelper.getBecknId(String.valueOf(wooOrder.get("id")),adaptor.getSubscriber().getSubscriberId(),Entity.fulfillment));
+        Price stp = shipping_total.get(Price.class,"price");
+        stp.setCurrency("INR");
+        stp.setValue(30);
+        breakUp.add(shipping_total);
 
         setBoBilling(order,wooOrder);
         order.setId(BecknIdHelper.getBecknId(String.valueOf(wooOrder.get("id")),adaptor.getSubscriber().getSubscriberId(),Entity.order));
         order.setState((String) wooOrder.get("status"));
         createItems(order,(JSONArray)wooOrder.get("line_items"));
 
-        order.setFulfillment(new Fulfillment());
-        order.getFulfillment().setEnd(new FulfillmentStop());
-        order.getFulfillment().getEnd().setLocation(new Location());
-        order.getFulfillment().getEnd().getLocation().setAddress(new Address());
-        order.getFulfillment().getEnd().setContact(new Contact());
-        order.getFulfillment().setCustomer(new User());
-        order.getFulfillment().setState(order.getState());
-        order.getFulfillment().setId(BecknIdHelper.getBecknId(String.valueOf(wooOrder.get("id")),adaptor.getSubscriber().getSubscriberId(),Entity.fulfillment));
+        Fulfillment outFulfillment = new Fulfillment();
+        order.setFulfillment(outFulfillment);
+        FulfillmentStop outEnd = new FulfillmentStop();
+        outFulfillment.setEnd(outEnd);
+        outEnd.setLocation(new Location());
+        outEnd.getLocation().setAddress(new Address());
+        outEnd.setContact(new Contact());
+        //outFulfillment.setCustomer(new User());
+        //outFulfillment.setState(order.getState());
+        outFulfillment.setId(BecknIdHelper.getBecknId(String.valueOf(wooOrder.get("id")),adaptor.getSubscriber().getSubscriberId(),Entity.fulfillment));
+        // FIXME Identify how to propagate type and provider_id to fulfillment in response
+        outFulfillment.setFulfillmentType("Delivery");
+        outFulfillment.setProviderId("glasshopper.in");
+        outFulfillment.setTracking(false);
+
 
         Locations locations = new Locations();
         createLocation(locations);
+        /*
         if (locations.size() > 0) {
             order.getFulfillment().setStart(new FulfillmentStop());
             order.getFulfillment().getStart().setLocation(locations.get(0));
         }
-
+        */
         JSONObject shipping = (JSONObject) wooOrder.get("shipping");
         if (ObjectUtil.isVoid(shipping.get("address_1"))){
             shipping = (JSONObject) wooOrder.get("billing");
@@ -525,15 +565,19 @@ public class WooCommerceHelper {
         String[] address1_parts = ((String)shipping.get("address_1")).split(",");
         String[] address2_parts = ((String)shipping.get("address_2")).split(",");
 
-
+        /*
         User user = order.getFulfillment().getCustomer();
         user.setPerson(new Person());
         Person person = (Person) user.getPerson();
         person.setName(shipping.get("first_name") + " " + shipping.get("last_name"));
-
-
+        */
         Address address = order.getFulfillment().getEnd().getLocation().getAddress();
-        address.setDoor(address1_parts[0]);
+        // FIXME door value passed in init is not available in address1_parts
+        if (address1_parts.length < 1) {
+            address.setDoor("-");
+        } else {
+            address.setDoor(address1_parts[0]);
+        }
         if (address1_parts.length > 1) {
             address.setBuilding(address1_parts[1]);
         }
@@ -557,8 +601,10 @@ public class WooCommerceHelper {
         order.setProvider(new Provider());
         order.getProvider().setId(BecknIdHelper.getBecknId(adaptor.getSubscriber().getSubscriberId(),
                 adaptor.getSubscriber().getSubscriberId(), Entity.provider));
-        order.setProviderLocation(locations.get(0));
-
+        Location outProviderLocation = new Location();
+        outProviderLocation.setId(locations.get(0).getId());
+        //order.setProviderLocation(locations.get(0));
+        order.setProviderLocation(outProviderLocation);
 
 
         return order;
@@ -606,6 +652,8 @@ public class WooCommerceHelper {
         Address address = new Address();
         billing.setAddress(address);
         address.setName(billing.getName());
+        // FIXME Extract Door info from wooOrder and assign here
+        address.setDoor("-");
         address.setStreet((String)wooBilling.get("address_1"));
         address.setLocality((String)wooBilling.get("address_2"));
         address.setPinCode((String)wooBilling.get("postcode"));
@@ -617,7 +665,9 @@ public class WooCommerceHelper {
         address.setCountry(country.getName());
         address.setState(state.getName());
         address.setCity(city.getName());
-
+        Date now = new Date(System.currentTimeMillis());
+        billing.setCreatedAt(now);
+        billing.setUpdatedAt(now);
     }
 
     public Location createLocation(Locations locations) {
@@ -724,5 +774,9 @@ public class WooCommerceHelper {
         outFulfillments.add(outFulfillment);
         outOrder.setFulfillments(outFulfillments);
         return outFulfillments;
+    }
+
+    public void getTags(Order inOrder, Order outOrder) {
+        Tags outTags = new Tags();
     }
 }
