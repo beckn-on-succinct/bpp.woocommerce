@@ -627,7 +627,6 @@ public class WooCommerceHelper {
         payment.setSettlementWindow("P2D");
         SettlementDetails stl_details = new SettlementDetails();
         SettlementDetail stl_detail = new SettlementDetail();
-        payment.setSettlementDetails(stl_details);
         stl_detail.setSettlementCounterparty("seller-app");
         stl_detail.setSettlementPhase("sale-amount");
         stl_detail.setSettlementType("upi");
@@ -638,7 +637,8 @@ public class WooCommerceHelper {
         stl_detail.setBankName("SBI Bank");
         stl_detail.setBranchName("Jayanagar");
         stl_details.add(stl_detail);
-        
+        payment.setSettlementDetails(stl_details);
+
         payment.setParams(new Params());
         payment.getParams().setCurrency(getSettings("general","woocommerce_currency"));
         payment.getParams().setAmount(doubleTypeConverter.valueOf(wooOrder.get("total")));
