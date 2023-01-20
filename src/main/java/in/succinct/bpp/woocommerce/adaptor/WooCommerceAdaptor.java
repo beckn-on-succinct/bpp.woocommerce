@@ -5,6 +5,7 @@ import com.venky.core.string.StringUtil;
 import com.venky.core.util.ObjectUtil;
 import com.venky.swf.db.Database;
 import com.venky.swf.plugins.beckn.messaging.Subscriber;
+import com.venky.swf.routing.Config;
 import com.venky.swf.sql.Expression;
 import com.venky.swf.sql.Operator;
 import com.venky.swf.sql.Select;
@@ -22,6 +23,7 @@ import in.succinct.beckn.ondc.retail.Category;
 import in.succinct.beckn.ondc.retail.Contact;
 import in.succinct.beckn.ondc.retail.Descriptor;
 import in.succinct.beckn.ondc.retail.Fulfillment;
+import in.succinct.beckn.ondc.retail.FulfillmentStop;
 import in.succinct.beckn.ondc.retail.Item;
 import in.succinct.beckn.ondc.retail.ItemQuantity;
 import in.succinct.beckn.ondc.retail.Location;
@@ -36,6 +38,7 @@ import in.succinct.bpp.woocommerce.helpers.WooCommerceHelper;
 import org.json.simple.JSONArray;
 import org.json.simple.JSONObject;
 
+import java.util.Date;
 import java.util.List;
 import java.util.Map;
 
@@ -240,7 +243,8 @@ public class WooCommerceAdaptor extends CommerceAdaptor {
 
     @Override
     public void confirm(Request request, Request reply) {
-        Order order = (Order) request.getMessage().getOrder();
+        Order order = request.getMessage().getOrder().cast(Order.class);
+        //Config.instance().getLogger(getClass().getName()).info("Woo Adaptor: inOrder id: " + order.getId());
         if (order == null){
             throw new RuntimeException("No Order passed");
         }
@@ -258,23 +262,60 @@ public class WooCommerceAdaptor extends CommerceAdaptor {
             outOrder = helper.woo_get("/orders/" + wooOrder.get("id"), new JSONObject());
         }
 
-        if (outOrder == null && outOrder.isEmpty()) {
+        /* FIXME temporary commented out
+        if (outOrder == null || outOrder.isEmpty()) {
             throw new RuntimeException("Order could not be found to confirm!");
         }
         if (!ObjectUtil.equals(outOrder.get("status"),"pending")){
-            throw new RuntimeException("Order already confirmed!");
+            //throw new RuntimeException("Order already confirmed!");
         }
+         */
 
         JSONObject params = new JSONObject();
-        params.put("status","on_hold");
+        params.put("status","pending");
 
         outOrder = helper.woo_put("/orders/" + wooOrder.get("id"), params);
+        //outOrder = helper.woo_post("/orders", wooOrder);
         if (outOrder != null && !outOrder.isEmpty()){
             Message message = helper.createMessage(reply);
-            message.setOrder(helper.getBecknOrder(outOrder));
+            Order oOrder = helper.getBecknOrder(outOrder);
+            message.setOrder(oOrder);
+
+            oOrder.getProvider().cast(Provider.class).setRateable(true);
+
+
+            //Set fulfillment.start
+            Locations locations = new Locations();
+            helper.createLocation(locations);
+            
+            if (locations.size() > 0) {
+                oOrder.getFulfillments().get(0).setStart(new FulfillmentStop());
+                oOrder.getFulfillments().get(0).getStart().setLocation(locations.get(0));
+            }
+            oOrder.getFulfillments().get(0).getStart().setInstructions(new Descriptor());
+            oOrder.getFulfillments().get(0).getStart().getInstructions().setName("Status for Pickup");
+            oOrder.getFulfillments().get(0).getStart().getInstructions().setName("Pickup confirmation code");
+
+            oOrder.getPayment().setTlMethod("http/get");
+            oOrder.getPayment().setUri("https://ondc.transaction.com/payment");
+            oOrder.getPayment().setParams(new Payment.Params());
+            oOrder.getPayment().getParams().setAmount(oOrder.getQuote().getPrice().getValue());
+            oOrder.getPayment().getParams().setCurrency("INR");
+            // FIXME Set tx_id correctly
+            oOrder.getPayment().getParams().setTransactionId("transaction_1");
+            oOrder.getPayment().setStatus("PAID");
+            oOrder.setDocuments(new Documents());
+            oOrder.getDocuments().add(new Document());
+            // FIXME Need Invoice url from WooCommerce
+            oOrder.getDocuments().get(0).setUrl("https://invoice_url");
+            oOrder.getDocuments().get(0).setLabel("Invoice");
+            oOrder.setState("Accepted");
+
+            Date now = new Date(System.currentTimeMillis());
+            oOrder.setCreatedAt(now);
+            oOrder.setUpdatedAt(now);
             return;
         }
-
 
         throw new RuntimeException("Insufficient information to confirm order!");
     }

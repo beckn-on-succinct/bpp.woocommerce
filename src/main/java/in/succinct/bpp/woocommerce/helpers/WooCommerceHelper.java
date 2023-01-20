@@ -13,6 +13,7 @@ import com.venky.swf.integration.api.InputFormat;
 import com.venky.swf.plugins.collab.db.model.config.City;
 import com.venky.swf.plugins.collab.db.model.config.Country;
 import com.venky.swf.plugins.collab.db.model.config.State;
+import com.venky.swf.routing.Config;
 import in.succinct.beckn.*;
 import in.succinct.beckn.Fulfillments;
 import in.succinct.beckn.Locations;
@@ -83,6 +84,7 @@ public class WooCommerceHelper {
     }
 
     public <T extends JSONAware> T woo_post(String relativeUrl, JSONObject parameter , Map<String,String> addnlHeaders){
+        // FIXME Need to handle error conditions like order already exists
         return new Call<JSONObject>().url(getStoreUrl(),relativeUrl).header("content-type", MimeType.APPLICATION_JSON.toString()).header("Authorization",getAuth()).headers(addnlHeaders)
                 .inputFormat(InputFormat.JSON).input(parameter).method(HttpMethod.POST).getResponseAsJson();
     }
@@ -427,7 +429,8 @@ public class WooCommerceHelper {
         JSONObject shipping = new JSONObject();
 
         if (!ObjectUtil.isVoid(bo.getId())){
-            order.put("id",BecknIdHelper.getLocalUniqueId(bo.getId(),Entity.order));
+            //order.put("id",BecknIdHelper.getLocalUniqueId(bo.getId(),Entity.order));
+            order.put("id","1068");
         }else {
             order.put("set_paid",false);
         }
@@ -451,7 +454,7 @@ public class WooCommerceHelper {
             });
         }
 
-
+        Config.instance().getLogger(getClass().getName()).info("WoocommerceHelper wooOrder" + order.toJSONString());
         return order;
     }
 
@@ -535,7 +538,10 @@ public class WooCommerceHelper {
         createItems(order,(JSONArray)wooOrder.get("line_items"));
 
         Fulfillment outFulfillment = new Fulfillment();
-        order.setFulfillment(outFulfillment);
+        Fulfillments oFulfillments = new Fulfillments();
+        outFulfillment.setId(BecknIdHelper.getBecknId(String.valueOf(wooOrder.get("id")),adaptor.getSubscriber().getSubscriberId(),Entity.fulfillment));
+        oFulfillments.add(outFulfillment);
+        order.setFulfillments(oFulfillments);
         FulfillmentStop outEnd = new FulfillmentStop();
         outFulfillment.setEnd(outEnd);
         outEnd.setLocation(new Location());
@@ -543,12 +549,11 @@ public class WooCommerceHelper {
         outEnd.setContact(new Contact());
         //outFulfillment.setCustomer(new User());
         //outFulfillment.setState(order.getState());
-        outFulfillment.setId(BecknIdHelper.getBecknId(String.valueOf(wooOrder.get("id")),adaptor.getSubscriber().getSubscriberId(),Entity.fulfillment));
+
         // FIXME Identify how to propagate type and provider_id to fulfillment in response
         outFulfillment.setFulfillmentType("Delivery");
         outFulfillment.setProviderId("glasshopper.in");
         outFulfillment.setTracking(false);
-
 
         Locations locations = new Locations();
         createLocation(locations);
@@ -571,7 +576,7 @@ public class WooCommerceHelper {
         Person person = (Person) user.getPerson();
         person.setName(shipping.get("first_name") + " " + shipping.get("last_name"));
         */
-        Address address = order.getFulfillment().getEnd().getLocation().getAddress();
+        Address address = order.getFulfillments().get(0).getEnd().getLocation().getAddress();
         // FIXME door value passed in init is not available in address1_parts
         if (address1_parts.length < 1) {
             address.setDoor("-");
@@ -594,8 +599,8 @@ public class WooCommerceHelper {
         address.setPinCode((String)shipping.get("postcode"));
         address.setCity(city.getName());
 
-        order.getFulfillment().getEnd().getContact().setPhone((String)shipping.get("phone"));
-        order.getFulfillment().getEnd().getContact().setEmail((String)shipping.get("email"));
+        order.getFulfillments().get(0).getEnd().getContact().setPhone((String)shipping.get("phone"));
+        order.getFulfillments().get(0).getEnd().getContact().setEmail((String)shipping.get("email"));
 
 
         order.setProvider(new Provider());
@@ -605,7 +610,6 @@ public class WooCommerceHelper {
         outProviderLocation.setId(locations.get(0).getId());
         //order.setProviderLocation(locations.get(0));
         order.setProviderLocation(outProviderLocation);
-
 
         return order;
     }
