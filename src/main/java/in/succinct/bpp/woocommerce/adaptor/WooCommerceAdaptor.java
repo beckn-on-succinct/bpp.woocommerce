@@ -287,7 +287,7 @@ public class WooCommerceAdaptor extends CommerceAdaptor {
             //Set fulfillment.start
             Locations locations = new Locations();
             helper.createLocation(locations);
-            
+
             if (locations.size() > 0) {
                 oOrder.getFulfillments().get(0).setStart(new FulfillmentStop());
                 oOrder.getFulfillments().get(0).getStart().setLocation(locations.get(0));

@@ -429,8 +429,10 @@ public class WooCommerceHelper {
         JSONObject shipping = new JSONObject();
 
         if (!ObjectUtil.isVoid(bo.getId())){
+            // FIXME ONDC uses uuid for ID, the logic below should expect uuid.
+            // For now, we simply avoid setting the id in order, so that it is taken based on tx_id.
             //order.put("id",BecknIdHelper.getLocalUniqueId(bo.getId(),Entity.order));
-            order.put("id","1068");
+
         }else {
             order.put("set_paid",false);
         }
