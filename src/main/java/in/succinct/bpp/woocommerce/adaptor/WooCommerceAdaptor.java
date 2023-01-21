@@ -30,6 +30,7 @@ import in.succinct.beckn.ondc.retail.Location;
 import in.succinct.beckn.ondc.retail.Order;
 import in.succinct.beckn.ondc.retail.Payment;
 import in.succinct.beckn.ondc.retail.Provider;
+import in.succinct.beckn.ondc.retail.State;
 import in.succinct.bpp.core.adaptor.CommerceAdaptor;
 import in.succinct.bpp.core.registry.BecknRegistry;
 import in.succinct.bpp.search.adaptor.SearchAdaptor;
@@ -291,10 +292,21 @@ public class WooCommerceAdaptor extends CommerceAdaptor {
             if (locations.size() > 0) {
                 oOrder.getFulfillments().get(0).setStart(new FulfillmentStop());
                 oOrder.getFulfillments().get(0).getStart().setLocation(locations.get(0));
+                // FIXME Get Start Contact from WooCommerce
+                oOrder.getFulfillments().get(0).getStart().setContact(new Contact());
+                oOrder.getFulfillments().get(0).getStart().getContact().setPhone("9845871013");
+                oOrder.getFulfillments().get(0).getStart().getContact().setEmail("contact@glasshopper.in");
             }
             oOrder.getFulfillments().get(0).getStart().setInstructions(new Descriptor());
             oOrder.getFulfillments().get(0).getStart().getInstructions().setName("Status for Pickup");
-            oOrder.getFulfillments().get(0).getStart().getInstructions().setName("Pickup confirmation code");
+            oOrder.getFulfillments().get(0).getStart().getInstructions().setShortDesc("Pickup confirmation code");
+            oOrder.getFulfillments().get(0).setState(new State());
+            oOrder.getFulfillments().get(0).getState().setDescriptor(new Descriptor());
+            oOrder.getFulfillments().get(0).getState().getDescriptor().setCode("Pending");
+            oOrder.getFulfillments().get(0).getState().getDescriptor().setName("Pending");
+            oOrder.getFulfillments().get(0).getEnd().setInstructions(new Descriptor());
+            oOrder.getFulfillments().get(0).getEnd().getInstructions().setName("Status for Delivery");
+            oOrder.getFulfillments().get(0).getEnd().getInstructions().setShortDesc("Delivery confirmation code");
 
             oOrder.getPayment().setTlMethod("http/get");
             oOrder.getPayment().setUri("https://ondc.transaction.com/payment");

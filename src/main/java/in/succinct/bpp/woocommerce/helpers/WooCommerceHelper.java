@@ -609,6 +609,8 @@ public class WooCommerceHelper {
         order.getProvider().setId(BecknIdHelper.getBecknId(adaptor.getSubscriber().getSubscriberId(),
                 adaptor.getSubscriber().getSubscriberId(), Entity.provider));
         Location outProviderLocation = new Location();
+        // FIXME on_init expects a separate entity providr_location, on_confirm expects locations inside provider.
+        // This code only meets on_init response.
         outProviderLocation.setId(locations.get(0).getId());
         //order.setProviderLocation(locations.get(0));
         order.setProviderLocation(outProviderLocation);
