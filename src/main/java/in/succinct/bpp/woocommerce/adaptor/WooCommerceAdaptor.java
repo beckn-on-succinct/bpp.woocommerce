@@ -27,6 +27,7 @@ import in.succinct.beckn.ondc.retail.FulfillmentStop;
 import in.succinct.beckn.ondc.retail.Item;
 import in.succinct.beckn.ondc.retail.ItemQuantity;
 import in.succinct.beckn.ondc.retail.Location;
+import in.succinct.beckn.ondc.retail.Message;
 import in.succinct.beckn.ondc.retail.Order;
 import in.succinct.beckn.ondc.retail.Payment;
 import in.succinct.beckn.ondc.retail.Provider;
@@ -339,18 +340,31 @@ public class WooCommerceAdaptor extends CommerceAdaptor {
 
     @Override
     public void cancel(Request request, Request reply) {
-        Order order = (Order) request.getMessage().getOrder();
-        if (order == null){
-            throw new RuntimeException("No Order passed");
+        String order_id = request.getMessage().cast(Message.class).getOrderId();
+        String cancel_reason_id = request.getMessage().cast(Message.class).getCancellationReasonId();
+        JSONObject wooOrder = new JSONObject();
+        if (!order_id.isEmpty()) {
+            String txnId = request.getContext().getTransactionId();
+            Select select = new Select().from(BecknOrderMeta.class);
+            List<BecknOrderMeta> list = select.where(new Expression(select.getPool(),"BECKN_TRANSACTION_ID", Operator.EQ,txnId)).execute(1);
+            if (!list.isEmpty()){
+                wooOrder.put("id",list.get(0).getWooCommerceOrderId());
+            }
         }
-        JSONObject wooOrder = helper.makeWooOrder(order);
+
+        //JSONObject wooOrder = helper.makeWooOrder(order);
         if (wooOrder.containsKey("id")) {
             JSONObject params = new JSONObject();
             params.put("status","cancelled");
             JSONObject outOrder = helper.woo_put("/orders/" + wooOrder.get("id"), params);
             if (outOrder != null && !outOrder.isEmpty()){
                 Message message = helper.createMessage(reply);
-                message.setOrder(helper.getBecknOrder(outOrder));
+                Order oOrder = helper.getBecknOrder(outOrder);
+                message.setOrder(oOrder);
+
+                oOrder.setState("Cancelled");
+                // FIXME Adjust fulfillment object to confirm that fulfillment is also cancelled.
+
                 return;
             }
         }
@@ -364,22 +378,34 @@ public class WooCommerceAdaptor extends CommerceAdaptor {
 
     @Override
     public void status(Request request, Request reply) {
-        Order order = (Order) request.getMessage().getOrder();
-        if (order == null){
-            order = new Order();
-            order.setId(request.getMessage().get("order_id"));
-            request.getMessage().setOrder(order);
+        String order_id = request.getMessage().cast(Message.class).getOrderId();
+        JSONObject wooOrder = new JSONObject();
+        if (!order_id.isEmpty()) {
+            String txnId = request.getContext().getTransactionId();
+            Select select = new Select().from(BecknOrderMeta.class);
+            List<BecknOrderMeta> list = select.where(new Expression(select.getPool(),"BECKN_TRANSACTION_ID", Operator.EQ,txnId)).execute(1);
+            if (!list.isEmpty()){
+                wooOrder.put("id",list.get(0).getWooCommerceOrderId());
+            }
         }
-        JSONObject wooOrder = helper.makeWooOrder(order);
+
+        //JSONObject wooOrder = helper.makeWooOrder(order);
         if (wooOrder.containsKey("id")) {
             JSONObject outOrder = helper.woo_get("/orders/" + wooOrder.get("id"),new JSONObject());
             if (outOrder != null && !outOrder.isEmpty()){
                 Message message = helper.createMessage(reply);
-                message.setOrder(helper.getBecknOrder(outOrder));
+                Order oOrder = helper.getBecknOrder(outOrder);
+                message.setOrder(oOrder);
+
+                // FIXME Need to map woocomm status codes to ONDC
+                oOrder.setState((String) wooOrder.get("status"));
+
+                //FIXME for now we rely on getBecknOrder to populate SOME fields, rather than reading already
+                // populated order object locally. So, this status response wont confirm to on_status spec.
                 return;
             }
         }
-        throw new RuntimeException("Unable to locate order to cancel!");
+        throw new RuntimeException("Unable to locate order to check status!");
     }
 
     @Override

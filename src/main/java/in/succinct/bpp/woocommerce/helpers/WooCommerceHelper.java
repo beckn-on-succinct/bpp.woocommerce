@@ -32,6 +32,7 @@ import in.succinct.beckn.ondc.retail.Fulfillment;
 import in.succinct.beckn.ondc.retail.FulfillmentStop;
 import in.succinct.beckn.ondc.retail.Item;
 import in.succinct.beckn.ondc.retail.Location;
+import in.succinct.beckn.ondc.retail.Message;
 import in.succinct.beckn.ondc.retail.Order;
 import in.succinct.beckn.ondc.retail.Payment;
 import in.succinct.beckn.ondc.retail.Payment.Params;
@@ -536,6 +537,7 @@ public class WooCommerceHelper {
 
         setBoBilling(order,wooOrder);
         order.setId(BecknIdHelper.getBecknId(String.valueOf(wooOrder.get("id")),adaptor.getSubscriber().getSubscriberId(),Entity.order));
+        // FIXME Need to map woocomm status codes to ONDC
         order.setState((String) wooOrder.get("status"));
         createItems(order,(JSONArray)wooOrder.get("line_items"));
 
