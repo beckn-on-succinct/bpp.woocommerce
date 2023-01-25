@@ -14,29 +14,42 @@ import com.venky.swf.plugins.collab.db.model.config.City;
 import com.venky.swf.plugins.collab.db.model.config.Country;
 import com.venky.swf.plugins.collab.db.model.config.State;
 import com.venky.swf.routing.Config;
-import in.succinct.beckn.*;
+import in.succinct.beckn.Address;
+import in.succinct.beckn.BecknStrings;
+import in.succinct.beckn.Billing;
+import in.succinct.beckn.BreakUp;
+import in.succinct.beckn.Catalog;
+import in.succinct.beckn.Circle;
+import in.succinct.beckn.Contact;
+import in.succinct.beckn.Descriptor;
+import in.succinct.beckn.FulfillmentStop;
 import in.succinct.beckn.Fulfillments;
+import in.succinct.beckn.Images;
+import in.succinct.beckn.ItemQuantity;
+import in.succinct.beckn.Items;
+import in.succinct.beckn.Location;
 import in.succinct.beckn.Locations;
-import in.succinct.beckn.Person;
+import in.succinct.beckn.Message;
+import in.succinct.beckn.Payment.Params;
+import in.succinct.beckn.Price;
 import in.succinct.beckn.Providers;
+import in.succinct.beckn.Quantity;
+import in.succinct.beckn.Quote;
+import in.succinct.beckn.Request;
+import in.succinct.beckn.Scalar;
+import in.succinct.beckn.Schedule;
 import in.succinct.beckn.Tags;
+import in.succinct.beckn.Time;
 import in.succinct.beckn.Time.Range;
-
-import in.succinct.beckn.ondc.retail.BreakupElement;
-import in.succinct.beckn.ondc.retail.*;
-import in.succinct.beckn.ondc.retail.Catalog;
-import in.succinct.beckn.ondc.retail.Circle;
-import in.succinct.beckn.ondc.retail.Contact;
-import in.succinct.beckn.ondc.retail.Descriptor;
+import in.succinct.beckn.User;
+import in.succinct.beckn.ondc.retail.BreakUpElement;
 import in.succinct.beckn.ondc.retail.Fulfillment;
-import in.succinct.beckn.ondc.retail.FulfillmentStop;
 import in.succinct.beckn.ondc.retail.Item;
-import in.succinct.beckn.ondc.retail.Location;
 import in.succinct.beckn.ondc.retail.Order;
 import in.succinct.beckn.ondc.retail.Payment;
-import in.succinct.beckn.ondc.retail.Payment.Params;
 import in.succinct.beckn.ondc.retail.Provider;
-import in.succinct.beckn.ondc.retail.Time;
+import in.succinct.beckn.ondc.retail.SettlementDetail;
+import in.succinct.beckn.ondc.retail.SettlementDetails;
 import in.succinct.bpp.woocommerce.adaptor.WooCommerceAdaptor;
 import in.succinct.bpp.woocommerce.helpers.BecknIdHelper.Entity;
 import org.jose4j.base64url.Base64;
@@ -47,6 +60,7 @@ import org.json.simple.JSONObject;
 import java.nio.charset.StandardCharsets;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
+import java.time.Duration;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
@@ -169,7 +183,7 @@ public class WooCommerceHelper {
         quote.setBreakUp(breakUp);
 
         //BreakUpElement product_total = breakUp.createElement("item","Product Total", new Price());
-        BreakupElement shipping_total = breakUp.createElement("fulfillment","Delivery Charges", new Price()).cast(BreakupElement.class);
+        BreakUpElement shipping_total = breakUp.createElement("delivery","Delivery Charges", new Price()).cast(BreakUpElement.class);
         // Grocery does not expect Taxes to be shown, they must be shown only for F&B
         //BreakUpElement product_tax_total = breakUp.createElement("item","Tax", new Price());
         //BreakUpElement shipping_tax_total = breakUp.createElement("fulfillment","Shipping Tax", new Price());
@@ -212,7 +226,7 @@ public class WooCommerceHelper {
             String localId = BecknIdHelper.getLocalUniqueId(inItem.getId(), Entity.item);
 
             // FIXME Use Product title instead of Product ID
-            BreakupElement breakup_product = breakUp.createElement("item", inItem.getId(), new Price()).cast(BreakupElement.class);
+            BreakUpElement breakup_product = breakUp.createElement("item", inItem.getId(), new Price()).cast(BreakUpElement.class);
 
             Quantity quantity = inItem.get(Quantity.class,"quantity");
             breakup_product.setItemQuantity(quantity);
@@ -288,7 +302,7 @@ public class WooCommerceHelper {
             outItem.setFulfillmentId("Fulfillment1");
 
             BreakUp breakUp = order.getQuote().getBreakUp();
-            BreakupElement breakup_product = breakUp.createElement("item", outItem.getId(), new Price()).cast(BreakupElement.class);
+            BreakUpElement breakup_product = breakUp.createElement("item", outItem.getId(), new Price()).cast(BreakUpElement.class);
 
             Quantity quantity = outItem.get(Quantity.class,"quantity");
             breakup_product.setItemQuantity(quantity);
@@ -469,7 +483,7 @@ public class WooCommerceHelper {
         shipping.put("last_name", user.getPerson().getName().substring(parts[0].length()));
 
         Address address = fulfillment.getEnd().getLocation().getAddress();
-        Contact contact = (Contact) fulfillment.getEnd().getContact();
+        Contact contact = fulfillment.getEnd().getContact();
 
         Country country = Country.findByName(address.getCountry());
         State state = State.findByCountryAndName(country.getId(),address.getState());
@@ -523,7 +537,7 @@ public class WooCommerceHelper {
         quote.getPrice().setCurrency(order.getPayment().getParams().getCurrency());
         BreakUp breakUp = new BreakUp();
         quote.setBreakUp(breakUp);
-        BreakupElement shipping_total = breakUp.createElement("fulfillment","Delivery Charges", new Price()).cast(BreakupElement.class);
+        BreakUpElement shipping_total = breakUp.createElement("fulfillment","Delivery Charges", new Price()).cast(BreakUpElement.class);
         shipping_total.setTitleType("delivery");
         // FIXME don't rely only on 0th element
         shipping_total.setItemId(BecknIdHelper.getBecknId(String.valueOf(wooOrder.get("id")),adaptor.getSubscriber().getSubscriberId(),Entity.fulfillment));
@@ -551,7 +565,7 @@ public class WooCommerceHelper {
         //outFulfillment.setState(order.getState());
 
         // FIXME Identify how to propagate type and provider_id to fulfillment in response
-        outFulfillment.setFulfillmentType("Delivery");
+        outFulfillment.setType("Delivery");
         outFulfillment.setProviderId("glasshopper.in");
         outFulfillment.setTracking(false);
 
@@ -687,7 +701,7 @@ public class WooCommerceHelper {
 
         location.setAddress(address);
         location.setCircle(circle);
-        circle.setScalarRadius(radius);
+        circle.setRadius(radius);
         location.setTime(time);
         time.setSchedule(schedule);
         time.setRange(range);
@@ -771,8 +785,8 @@ public class WooCommerceHelper {
         outFulfillment.setProviderName("Glasshopper");
         outFulfillment.setTracking(false);
         outFulfillment.setCategory("Standard Delivery");
-        outFulfillment.setTAT("PT360M");
-        in.succinct.beckn.ondc.retail.State fState = new in.succinct.beckn.ondc.retail.State();
+        outFulfillment.setTAT(Duration.ofMinutes(360));
+        in.succinct.beckn.State fState = new in.succinct.beckn.State();
         outFulfillment.setState(fState);
         Descriptor stateDescriptor = new Descriptor();
         fState.setDescriptor(stateDescriptor);

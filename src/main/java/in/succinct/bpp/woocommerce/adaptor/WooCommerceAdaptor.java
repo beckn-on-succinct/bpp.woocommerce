@@ -2,36 +2,37 @@ package in.succinct.bpp.woocommerce.adaptor;
 
 import com.venky.core.collections.IgnoreCaseMap;
 import com.venky.core.string.StringUtil;
-import com.venky.core.util.ObjectUtil;
 import com.venky.swf.db.Database;
 import com.venky.swf.plugins.beckn.messaging.Subscriber;
-import com.venky.swf.routing.Config;
 import com.venky.swf.sql.Expression;
 import com.venky.swf.sql.Operator;
 import com.venky.swf.sql.Select;
-import in.succinct.beckn.*;
+import in.succinct.beckn.Catalog;
 import in.succinct.beckn.Categories;
+import in.succinct.beckn.Contact;
+import in.succinct.beckn.Descriptor;
+import in.succinct.beckn.Document;
+import in.succinct.beckn.Documents;
+import in.succinct.beckn.FulfillmentStop;
 import in.succinct.beckn.Fulfillments;
+import in.succinct.beckn.Intent;
+import in.succinct.beckn.Items;
+import in.succinct.beckn.Location;
 import in.succinct.beckn.Locations;
+import in.succinct.beckn.Message;
 import in.succinct.beckn.Payments;
 import in.succinct.beckn.Providers;
+import in.succinct.beckn.Quote;
+import in.succinct.beckn.Request;
 import in.succinct.beckn.Tags;
-import in.succinct.beckn.ondc.retail.*;
-import in.succinct.beckn.Fulfillment.FulfillmentType;
-import in.succinct.beckn.ondc.retail.Catalog;
 import in.succinct.beckn.ondc.retail.Category;
-import in.succinct.beckn.ondc.retail.Contact;
-import in.succinct.beckn.ondc.retail.Descriptor;
 import in.succinct.beckn.ondc.retail.Fulfillment;
-import in.succinct.beckn.ondc.retail.FulfillmentStop;
 import in.succinct.beckn.ondc.retail.Item;
-import in.succinct.beckn.ondc.retail.ItemQuantity;
-import in.succinct.beckn.ondc.retail.Location;
 import in.succinct.beckn.ondc.retail.Order;
 import in.succinct.beckn.ondc.retail.Payment;
 import in.succinct.beckn.ondc.retail.Provider;
 import in.succinct.bpp.core.adaptor.CommerceAdaptor;
-import in.succinct.bpp.core.registry.BecknRegistry;
+import in.succinct.bpp.core.adaptor.NetworkAdaptor;
 import in.succinct.bpp.search.adaptor.SearchAdaptor;
 import in.succinct.bpp.woocommerce.db.model.BecknOrderMeta;
 import in.succinct.bpp.woocommerce.helpers.WooCommerceHelper;
@@ -46,7 +47,7 @@ public class WooCommerceAdaptor extends CommerceAdaptor {
     final SearchAdaptor searchAdaptor;
     final WooCommerceHelper helper ;
     final Map<String,String> configuration ;
-    public WooCommerceAdaptor(Map<String,String> configuration, Subscriber subscriber, BecknRegistry registry){
+    public WooCommerceAdaptor(Map<String,String> configuration, Subscriber subscriber, NetworkAdaptor registry){
         super(subscriber,registry);
         this.searchAdaptor = new SearchAdaptor(this);
         this.helper = new WooCommerceHelper(this);
@@ -90,7 +91,7 @@ public class WooCommerceAdaptor extends CommerceAdaptor {
         Fulfillments cFulfillments = new Fulfillments();
         catalog.setFulfillments(cFulfillments);
         Fulfillment cFulfillment = new Fulfillment();
-        cFulfillment.setFulfillmentType("Delivery");
+        cFulfillment.setType("Delivery");
         cFulfillment.setId("1");
         cFulfillments.add(cFulfillment);
 
@@ -114,9 +115,9 @@ public class WooCommerceAdaptor extends CommerceAdaptor {
         JSONArray woo_products = helper.woo_post("products",search, new IgnoreCaseMap<String>(){{
             put("X-HTTP-Method-Override","GET");
         }});
-        for (int i = 0 ; i < woo_products.size() ; i ++){
-            JSONObject woo_product = (JSONObject) woo_products.get(i);
-            Item item = helper.createItem(items,woo_product);
+        for (Object wooProduct : woo_products) {
+            JSONObject woo_product = (JSONObject) wooProduct;
+            Item item = helper.createItem(items, woo_product);
 
             item.setLocationId(location.getId());
             /* Item level locationIds is not required
@@ -143,9 +144,9 @@ public class WooCommerceAdaptor extends CommerceAdaptor {
             item.setFulfillmentId(cFulfillment.getId());
 
             JSONArray categories = (JSONArray) woo_product.get("categories");
-            for (Object ocategory : categories){
+            for (Object ocategory : categories) {
                 JSONObject wooCategory = (JSONObject) ocategory;
-                Category category= new Category();
+                Category category = new Category();
                 // TODO: SetID based on properties file
                 category.setId("Home Decor");
 
@@ -166,7 +167,7 @@ public class WooCommerceAdaptor extends CommerceAdaptor {
                 item.setCategoryId(category.getId());
                 */
             }
-            Category category= new Category();
+            Category category = new Category();
             // TODO: SetID based on properties file
             category.setId("Home Decor");
             item.setCategoryId(category.getId());
@@ -185,9 +186,9 @@ public class WooCommerceAdaptor extends CommerceAdaptor {
 
             item.setTags(new Tags());
             JSONArray arr = (JSONArray) woo_product.get("meta_data");
-            for (int j = 0 ; j < arr.size() ; j ++){
-                JSONObject tag =  (JSONObject) arr.get(j);
-                item.getTags().set((String)tag.get("key"),(String)tag.get("value"));
+            for (Object o : arr) {
+                JSONObject tag = (JSONObject) o;
+                item.getTags().set((String) tag.get("key"), (String) tag.get("value"));
             }
 
 

@@ -17,7 +17,6 @@ import in.succinct.beckn.Message;
 import in.succinct.beckn.Providers;
 import in.succinct.beckn.Request;
 import in.succinct.bpp.core.adaptor.CommerceAdaptor;
-import in.succinct.bpp.core.registry.BecknRegistry;
 import in.succinct.bpp.search.db.model.Item;
 import in.succinct.bpp.search.db.model.Provider;
 import in.succinct.bpp.woocommerce.adaptor.WooCommerceAdaptor;
