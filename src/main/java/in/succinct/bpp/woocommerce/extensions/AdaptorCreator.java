@@ -19,10 +19,9 @@ public class AdaptorCreator implements Extension {
     public void invoke(Object... context) {
         Map<String,String> properties = (Map<String,String>) context[0];
         Subscriber subscriber = (Subscriber) context[1];
-        NetworkAdaptor registry = (NetworkAdaptor)context[2];
         ObjectHolder<CommerceAdaptor> commerceAdaptorHolder = (ObjectHolder<CommerceAdaptor>) context[3];
         if (properties.containsKey("in.succinct.bpp.woocommerce.storeUrl")){
-            commerceAdaptorHolder.set(new WooCommerceAdaptor(properties,subscriber,registry));
+            commerceAdaptorHolder.set(new WooCommerceAdaptor(properties,subscriber));
         }
     }
 

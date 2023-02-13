@@ -11,6 +11,8 @@ import in.succinct.beckn.Context;
 import in.succinct.beckn.Message;
 import in.succinct.beckn.Request;
 import in.succinct.bpp.core.adaptor.CommerceAdaptor;
+import in.succinct.bpp.core.adaptor.NetworkAdaptor;
+import in.succinct.bpp.core.adaptor.NetworkAdaptorFactory;
 import in.succinct.bpp.woocommerce.adaptor.WooCommerceAdaptor;
 import in.succinct.bpp.woocommerce.helpers.WooCommerceHelper;
 import org.json.simple.JSONArray;
@@ -31,18 +33,19 @@ public class Webhook implements Extension {
     @Override
     public void invoke(Object... objects) {
         CommerceAdaptor adaptor = (CommerceAdaptor) objects[0];
-        Path path = (Path) objects[1];
+        NetworkAdaptor networkAdaptor = (NetworkAdaptor) objects[1];
+        Path path = (Path) objects[2];
         if (!(adaptor instanceof WooCommerceAdaptor)) {
             return;
         }
         WooCommerceAdaptor wooCommerceAdaptor = (WooCommerceAdaptor) adaptor;
         try {
-            hook(wooCommerceAdaptor, path);
+            hook(wooCommerceAdaptor, networkAdaptor,path);
         } catch (Exception ex) {
             throw new RuntimeException(ex);
         }
     }
-    public void hook(WooCommerceAdaptor wooCommerceAdaptor,Path path) throws Exception{
+    public void hook(WooCommerceAdaptor wooCommerceAdaptor, NetworkAdaptor networkAdaptor, Path path) throws Exception{
         String payload = StringUtil.read(path.getInputStream());
         if (ObjectUtil.equals(path.getHeader("X-WC-Webhook-Topic"),"order.updated")){
             String sign = path.getHeader("X-WC-Webhook-Signature");
@@ -80,7 +83,7 @@ public class Webhook implements Extension {
             context.setTimestamp(new Date());
             context.setAction("on_status");
             context.setMessageId(UUID.randomUUID().toString());
-            wooCommerceAdaptor.callback(request);
+            networkAdaptor.getApiAdaptor().callback(wooCommerceAdaptor,request);
 
         }
     }

@@ -1,61 +1,38 @@
 package in.succinct.bpp.woocommerce.adaptor;
 
 import com.venky.core.collections.IgnoreCaseMap;
-import com.venky.core.string.StringUtil;
-import com.venky.swf.db.Database;
 import com.venky.swf.plugins.beckn.messaging.Subscriber;
-import com.venky.swf.sql.Expression;
-import com.venky.swf.sql.Operator;
-import com.venky.swf.sql.Select;
-import in.succinct.beckn.Catalog;
-import in.succinct.beckn.Categories;
-import in.succinct.beckn.Contact;
 import in.succinct.beckn.Descriptor;
 import in.succinct.beckn.Document;
 import in.succinct.beckn.Documents;
 import in.succinct.beckn.FulfillmentStop;
-import in.succinct.beckn.Fulfillments;
-import in.succinct.beckn.Intent;
+import in.succinct.beckn.Item;
 import in.succinct.beckn.Items;
-import in.succinct.beckn.Location;
 import in.succinct.beckn.Locations;
-import in.succinct.beckn.Message;
-import in.succinct.beckn.Payments;
-import in.succinct.beckn.Providers;
-import in.succinct.beckn.Quote;
+import in.succinct.beckn.Order;
+import in.succinct.beckn.Payment;
+import in.succinct.beckn.Payment.PaymentStatus;
 import in.succinct.beckn.Request;
 import in.succinct.beckn.Tags;
-import in.succinct.beckn.ondc.retail.Category;
-import in.succinct.beckn.ondc.retail.Fulfillment;
-import in.succinct.beckn.ondc.retail.Item;
-import in.succinct.beckn.ondc.retail.Order;
-import in.succinct.beckn.ondc.retail.Payment;
-import in.succinct.beckn.ondc.retail.Provider;
 import in.succinct.bpp.core.adaptor.CommerceAdaptor;
-import in.succinct.bpp.core.adaptor.NetworkAdaptor;
-import in.succinct.bpp.search.adaptor.SearchAdaptor;
-import in.succinct.bpp.woocommerce.db.model.BecknOrderMeta;
+import in.succinct.bpp.core.adaptor.TimeSensitiveCache;
 import in.succinct.bpp.woocommerce.helpers.WooCommerceHelper;
 import org.json.simple.JSONArray;
 import org.json.simple.JSONObject;
 
+import java.time.Duration;
 import java.util.Date;
-import java.util.List;
 import java.util.Map;
 
 public class WooCommerceAdaptor extends CommerceAdaptor {
-    final SearchAdaptor searchAdaptor;
-    final WooCommerceHelper helper ;
-    final Map<String,String> configuration ;
-    public WooCommerceAdaptor(Map<String,String> configuration, Subscriber subscriber, NetworkAdaptor registry){
-        super(subscriber,registry);
-        this.searchAdaptor = new SearchAdaptor(this);
-        this.helper = new WooCommerceHelper(this);
-        this.configuration = configuration;
-    }
+    final WooCommerceHelper helper;
+    final TimeSensitiveCache cache = new TimeSensitiveCache(Duration.ofSeconds(60));
 
-    public Map<String, String> getConfiguration() {
-        return configuration;
+    public WooCommerceAdaptor(Map<String, String> configuration, Subscriber subscriber) {
+        super(configuration, subscriber);
+        this.helper = new WooCommerceHelper(this);
+        getProviderConfig().getSupportContact().setEmail(getSupportEmail());
+        getProviderConfig().getLocation().getAddress().setName(getProviderDescription());
     }
 
     public WooCommerceHelper getHelper() {
@@ -63,351 +40,173 @@ public class WooCommerceAdaptor extends CommerceAdaptor {
     }
 
     @Override
-    public void search(Request request,Request reply){
-        this.searchAdaptor.search(request,reply);
-    }
-    /* Don't remove Used from AppInstaller */
-    /* Search is fulfilled from the plugin */
-    public void _search(Request request, Request reply) {
-        Intent intent = request.getMessage().getIntent();
-        JSONObject search = new JSONObject();
-        search.put("status","publish");
-        search.put("stock_status","instock");
-        if (intent.getDescriptor() != null){
-            search.put("search",intent.getDescriptor().getName());
-        }else if (intent.getItem() != null && intent.getItem().getDescriptor() != null){
-            search.put("search",intent.getItem().getDescriptor().getName());
-        }
-
-        Message message = helper.createMessage(reply);
-        Catalog catalog = helper.createCatalog(message);
-        Providers providers = helper.createProviders(catalog);
-        Provider provider = helper.createProvider(providers);
-        provider.setLocations(new Locations());
-        provider.setPayments(new Payments());
-        provider.setCategories(new Categories());
-
-        // Populate catalog level fulfillments
-        Fulfillments cFulfillments = new Fulfillments();
-        catalog.setFulfillments(cFulfillments);
-        Fulfillment cFulfillment = new Fulfillment();
-        cFulfillment.setType("Delivery");
-        cFulfillment.setId("1");
-        cFulfillments.add(cFulfillment);
-
-        //Note that descriptor is only added to response if the search adaptor is not loaded.
-        catalog.setDescriptor(provider.getDescriptor());
-        Location location = helper.createLocation(provider.getLocations());
-
-        // Populate provider level fulfillments
-        Fulfillments pFulfillments = new Fulfillments();
-        Fulfillment pFulfillment = new Fulfillment();
-        Contact fContact = new Contact();
-        fContact.setPhone("9886098860");
-        fContact.setEmail("abc@xyz.com");
-        pFulfillment.setContact(fContact);
-        pFulfillment.setId("1");
-        pFulfillments.add(pFulfillment);
-        provider.setFulfillments(pFulfillments);
-
-        Items items = helper.createItems(provider);
-
-        JSONArray woo_products = helper.woo_post("products",search, new IgnoreCaseMap<String>(){{
-            put("X-HTTP-Method-Override","GET");
-        }});
-        for (Object wooProduct : woo_products) {
-            JSONObject woo_product = (JSONObject) wooProduct;
-            Item item = helper.createItem(items, woo_product);
-
-            item.setLocationId(location.getId());
-            /* Item level locationIds is not required
-            item.setLocationIds(new BecknStrings());
-            item.getLocationIds().add(location.getId());
-            if (provider.getLocations().get(location.getId()) == null) {
-                provider.getLocations().add(location);
-            }
-            */
-
-            /* Item level fulfillments is not required.
-            Fulfillment fulfillment =new Fulfillment();
-            fulfillment.setId(FulfillmentType.store_pickup.toString());
-            fulfillment.setType(FulfillmentType.store_pickup);
-            */
-
-            /* Item level fulfillmentIds is not required
-            item.setFulfillmentIds(new BecknStrings());
-            item.getFulfillmentIds().add(cFulfillment.getId());
-            if (provider.getFulfillments().get(cFulfillment.getId()) == null) {
-                provider.getFulfillments().add(cFulfillment);
-            }
-            */
-            item.setFulfillmentId(cFulfillment.getId());
-
-            JSONArray categories = (JSONArray) woo_product.get("categories");
-            for (Object ocategory : categories) {
-                JSONObject wooCategory = (JSONObject) ocategory;
-                Category category = new Category();
-                // TODO: SetID based on properties file
-                category.setId("Home Decor");
-
-                /* Category level descriptor is not required.
-                category.setDescriptor(new Descriptor());
-                category.getDescriptor().setName((String)wooCategory.get("name"));
-                category.getDescriptor().setCode((String)wooCategory.get("slug"));
-                */
-
-                /* CategoryId is not an array in ONDC
-                if (provider.getCategories().get(category.getId()) == null) {
-                    provider.getCategories().add(category);
-                }
-                if (item.getCategoryIds() == null) {
-                    item.setCategoryIds(new BecknStrings());
-                }
-                item.getCategoryIds().add(category.getId());
-                item.setCategoryId(category.getId());
-                */
-            }
-            Category category = new Category();
-            // TODO: SetID based on properties file
-            category.setId("Home Decor");
-            item.setCategoryId(category.getId());
-
-            /* Item level paymentIds is not required.
-            item.setPaymentIds(new BecknStrings());
-            Payment payment = new Payment();
-            payment.setType("POST-FULFILLMENT");
-            payment.setId(payment.getType());
-            item.setPaymentIds(new BecknStrings());
-            item.getPaymentIds().add(payment.getId());
-            if (provider.getPayments().get(payment.getId()) == null) {
-                provider.getPayments().add(payment);
-            }
-            */
-
-            item.setTags(new Tags());
-            JSONArray arr = (JSONArray) woo_product.get("meta_data");
-            for (Object o : arr) {
-                JSONObject tag = (JSONObject) o;
-                item.getTags().set((String) tag.get("key"), (String) tag.get("value"));
-            }
-
-
-        }
+    public Locations getProviderLocations() {
+        return cache.get(Locations.class, () -> {
+            Locations locations = new Locations();
+            locations.add(helper.getLocation());
+            return locations;
+        });
     }
 
     @Override
-    public void select(Request request, Request response) {
-        Order inOrder = request.getMessage().getOrder().cast(Order.class);
+    public Items getItems() {
+        return cache.get(Items.class, () -> {
+            JSONObject search = new JSONObject();
+            search.put("status", "publish");
+            search.put("stock_status", "instock");
+            JSONArray woo_products = helper.woo_post("products", search, new IgnoreCaseMap<String>() {{
+                put("X-HTTP-Method-Override", "GET");
+            }});
+            Items items = new Items();
+            for (Object wooProduct : woo_products) {
+                JSONObject woo_product = (JSONObject) wooProduct;
+                Item item = helper.createItem(items, woo_product);
+                item.setLocationId(getProviderLocations().get(0).getId());
+                item.setFulfillmentId(getHomeDelivery().getId());
+                JSONArray categories = (JSONArray) woo_product.get("categories");
+                for (Object ocategory : categories) {
+                    JSONObject wooCategory = (JSONObject) ocategory;
+                    item.setTags(new Tags());
+                    item.getTags().set((String) wooCategory.get("name"), true);
+                }
 
-        Message message = helper.createMessage(response);
-        Order outOrder = helper.createOrder(message);
-        Provider outProvider = new Provider();
-        outOrder.setProvider(outProvider);
-        outProvider.setId(inOrder.getProvider().getId());
-        Quote quote = helper.createQuote(outOrder);
-        Fulfillments outFulfillments = helper.createFulfillments(outOrder);
-        Items outItems = helper.createItems(outOrder,inOrder.getItems());
+                item.setCategoryId(getProviderConfig().getCategory().getId());
+                item.setTags(new Tags());
+                JSONArray arr = (JSONArray) woo_product.get("meta_data");
+                for (Object o : arr) {
+                    JSONObject tag = (JSONObject) o;
+                    item.getTags().set((String) tag.get("key"), (String) tag.get("value"));
+                }
+                items.add(item);
+            }
+            return items;
+
+        });
 
     }
 
     @Override
-    public void init(Request request, Request reply) {
-        Order order = request.getMessage().getOrder().cast(Order.class);
-        if (order == null){
-            throw new RuntimeException("No Order passed");
-        }
+    public boolean isTaxIncludedInPrice() {
+        return helper.isTaxIncludedInPrice();
+    }
+
+    @Override
+    public in.succinct.beckn.Order initializeDraftOrder(Request request) {
+        Order order = request.getMessage().getOrder();
+
         JSONObject wooOrder = helper.makeWooOrder(order);
-        wooOrder.put("transaction_id","beckn-"+request.getContext().getTransactionId());
+        wooOrder.put("transaction_id", "beckn-" + request.getContext().getTransactionId());
 
-        wooOrder.put("meta_data",new JSONArray());
+        wooOrder.put("meta_data", new JSONArray());
         JSONArray metaArray = (JSONArray) wooOrder.get("meta_data");
-        for (String key : new String[]{"bap_id","bap_uri","domain","transaction_id","city","country","core_version"}){
+        for (String key : new String[]{"bap_id", "bap_uri", "domain", "transaction_id", "city", "country", "core_version"}) {
             JSONObject meta = new JSONObject();
-            meta.put("key",String.format("context.%s",key));
-            meta.put("value",request.getContext().get(key));
+            meta.put("key", String.format("context.%s", key));
+            meta.put("value", request.getContext().get(key));
             metaArray.add(meta);
         }
 
         // FIXME If the Woocommerce call fails, ensure that response is sent back with correct errors to BAP
         JSONObject outOrder = helper.woo_post("/orders", wooOrder);
-
-        Message message = helper.createMessage(reply);
-        message.setOrder(helper.getBecknOrder(outOrder));
-        // FIXME Add Tags to do outOrder per ONDC spec
-        BecknOrderMeta becknOrderMeta = Database.getTable(BecknOrderMeta.class).newRecord();
-        becknOrderMeta.setBecknTransactionId(request.getContext().getTransactionId());
-        becknOrderMeta = Database.getTable(BecknOrderMeta.class).getRefreshed(becknOrderMeta);
-        becknOrderMeta.setWooCommerceOrderId(StringUtil.valueOf(outOrder.get("id")));
-        becknOrderMeta.save();
-
+        return helper.getBecknOrder(outOrder);
     }
 
     @Override
-    public void confirm(Request request, Request reply) {
-        Order order = request.getMessage().getOrder().cast(Order.class);
-        //Config.instance().getLogger(getClass().getName()).info("Woo Adaptor: inOrder id: " + order.getId());
-        if (order == null){
-            throw new RuntimeException("No Order passed");
-        }
-        JSONObject wooOrder = helper.makeWooOrder(order);
-        if (!wooOrder.containsKey("id")) {
-            String txnId = request.getContext().getTransactionId();
-            Select select = new Select().from(BecknOrderMeta.class);
-            List<BecknOrderMeta> list = select.where(new Expression(select.getPool(),"BECKN_TRANSACTION_ID", Operator.EQ,txnId)).execute(1);
-            if (!list.isEmpty()){
-                wooOrder.put("id",list.get(0).getWooCommerceOrderId());
-            }
-        }
+    public in.succinct.beckn.Order confirmDraftOrder(in.succinct.beckn.Order draftOrder) {
         JSONObject outOrder = null;
+        JSONObject wooOrder = helper.makeWooOrder(draftOrder);
         if (wooOrder.containsKey("id")) {
             outOrder = helper.woo_get("/orders/" + wooOrder.get("id"), new JSONObject());
         }
-
-        /* FIXME temporary commented out
         if (outOrder == null || outOrder.isEmpty()) {
             throw new RuntimeException("Order could not be found to confirm!");
         }
+
+        /* FIXME temporary commented out
         if (!ObjectUtil.equals(outOrder.get("status"),"pending")){
             //throw new RuntimeException("Order already confirmed!");
         }
          */
 
         JSONObject params = new JSONObject();
-        params.put("status","pending");
+        params.put("status", "pending");
 
         outOrder = helper.woo_put("/orders/" + wooOrder.get("id"), params);
-        //outOrder = helper.woo_post("/orders", wooOrder);
-        if (outOrder != null && !outOrder.isEmpty()){
-            Message message = helper.createMessage(reply);
-            Order oOrder = helper.getBecknOrder(outOrder);
-            message.setOrder(oOrder);
-
-            oOrder.getProvider().cast(Provider.class).setRateable(true);
+        Order oOrder = helper.getBecknOrder(outOrder);
+        oOrder.getProvider().setRateable(true);
 
 
-            //Set fulfillment.start
-            Locations locations = new Locations();
-            helper.createLocation(locations);
-            
-            if (locations.size() > 0) {
-                oOrder.getFulfillments().get(0).setStart(new FulfillmentStop());
-                oOrder.getFulfillments().get(0).getStart().setLocation(locations.get(0));
+        //Set fulfillment.start
+        Locations locations = new Locations();
+        locations.add(helper.getLocation());
+
+        if (locations.size() > 0) {
+            oOrder.getFulfillments().get(0).setStart(new FulfillmentStop());
+            oOrder.getFulfillments().get(0).getStart().setLocation(locations.get(0));
+        }
+        oOrder.getFulfillments().get(0).getStart().setInstructions(new Descriptor());
+        oOrder.getFulfillments().get(0).getStart().getInstructions().setName("Status for Pickup");
+        oOrder.getFulfillments().get(0).getStart().getInstructions().setName("Pickup confirmation code");
+
+        oOrder.getPayment().setTlMethod("http/get");
+        oOrder.getPayment().setUri("https://ondc.transaction.com/payment");
+        oOrder.getPayment().setParams(new Payment.Params());
+        oOrder.getPayment().getParams().setAmount(oOrder.getQuote().getPrice().getValue());
+        oOrder.getPayment().getParams().setCurrency("INR");
+        // FIXME Set tx_id correctly
+        oOrder.getPayment().getParams().setTransactionId("transaction_1");
+        oOrder.getPayment().setStatus(PaymentStatus.PAID);
+        oOrder.setDocuments(new Documents());
+        oOrder.getDocuments().add(new Document());
+        // FIXME Need Invoice url from WooCommerce
+        oOrder.getDocuments().get(0).setUrl("https://invoice_url");
+        oOrder.getDocuments().get(0).setLabel("Invoice");
+        oOrder.setState("Accepted");
+
+        Date now = new Date(System.currentTimeMillis());
+        oOrder.setCreatedAt(now);
+        oOrder.setUpdatedAt(now);
+        return oOrder;
+    }
+
+    @Override
+    public in.succinct.beckn.Order getStatus(in.succinct.beckn.Order order) {
+        JSONObject wooOrder = helper.makeWooOrder(order);
+        if (wooOrder.containsKey("id")) {
+            JSONObject outOrder = helper.woo_get("/orders/" + wooOrder.get("id"), new JSONObject());
+            if (outOrder != null && !outOrder.isEmpty()) {
+                return helper.getBecknOrder(outOrder);
             }
-            oOrder.getFulfillments().get(0).getStart().setInstructions(new Descriptor());
-            oOrder.getFulfillments().get(0).getStart().getInstructions().setName("Status for Pickup");
-            oOrder.getFulfillments().get(0).getStart().getInstructions().setName("Pickup confirmation code");
-
-            oOrder.getPayment().setTlMethod("http/get");
-            oOrder.getPayment().setUri("https://ondc.transaction.com/payment");
-            oOrder.getPayment().setParams(new Payment.Params());
-            oOrder.getPayment().getParams().setAmount(oOrder.getQuote().getPrice().getValue());
-            oOrder.getPayment().getParams().setCurrency("INR");
-            // FIXME Set tx_id correctly
-            oOrder.getPayment().getParams().setTransactionId("transaction_1");
-            oOrder.getPayment().setStatus("PAID");
-            oOrder.setDocuments(new Documents());
-            oOrder.getDocuments().add(new Document());
-            // FIXME Need Invoice url from WooCommerce
-            oOrder.getDocuments().get(0).setUrl("https://invoice_url");
-            oOrder.getDocuments().get(0).setLabel("Invoice");
-            oOrder.setState("Accepted");
-
-            Date now = new Date(System.currentTimeMillis());
-            oOrder.setCreatedAt(now);
-            oOrder.setUpdatedAt(now);
-            return;
         }
-
-        throw new RuntimeException("Insufficient information to confirm order!");
+        throw new RuntimeException("Unable to locate order to return status!");
     }
 
     @Override
-    public void track(Request request, Request reply) {
-
-    }
-
-    @Override
-    public void cancel(Request request, Request reply) {
-        Order order = (Order) request.getMessage().getOrder();
-        if (order == null){
-            throw new RuntimeException("No Order passed");
-        }
+    public in.succinct.beckn.Order cancel(in.succinct.beckn.Order order) {
         JSONObject wooOrder = helper.makeWooOrder(order);
         if (wooOrder.containsKey("id")) {
             JSONObject params = new JSONObject();
-            params.put("status","cancelled");
+            params.put("status", "cancelled");
             JSONObject outOrder = helper.woo_put("/orders/" + wooOrder.get("id"), params);
-            if (outOrder != null && !outOrder.isEmpty()){
-                Message message = helper.createMessage(reply);
-                message.setOrder(helper.getBecknOrder(outOrder));
-                return;
+            if (outOrder != null && !outOrder.isEmpty()) {
+                return helper.getBecknOrder(outOrder);
             }
         }
         throw new RuntimeException("Unable to locate order to cancel!");
     }
 
     @Override
-    public void update(Request request, Request reply) {
-        throw new RuntimeException("Orders cannot be updated. Please cancel and rebook your orders!");
+    public String getTrackingUrl(in.succinct.beckn.Order order) {
+        return null;
     }
 
-    @Override
-    public void status(Request request, Request reply) {
-        Order order = (Order) request.getMessage().getOrder();
-        if (order == null){
-            order = new Order();
-            order.setId(request.getMessage().get("order_id"));
-            request.getMessage().setOrder(order);
-        }
-        JSONObject wooOrder = helper.makeWooOrder(order);
-        if (wooOrder.containsKey("id")) {
-            JSONObject outOrder = helper.woo_get("/orders/" + wooOrder.get("id"),new JSONObject());
-            if (outOrder != null && !outOrder.isEmpty()){
-                Message message = helper.createMessage(reply);
-                message.setOrder(helper.getBecknOrder(outOrder));
-                return;
-            }
-        }
-        throw new RuntimeException("Unable to locate order to cancel!");
+    private String getSupportEmail() {
+        JSONObject admin = helper.woo_get("/customers/1", new JSONObject());
+        return (String) admin.get("email");
     }
 
-    @Override
-    public void rating(Request request, Request reply) {
-
+    private String getProviderDescription() {
+        return helper.getSettings("general","woocommerce_store_address");
     }
-
-
-    @Override
-    public void support(Request request, Request reply) {
-        Message message = helper.createMessage(reply);
-        JSONObject admin = helper.woo_get("/customers/1",new JSONObject());
-        message.setEmail((String)admin.get("email"));
-    }
-
-    @Override
-    public void get_cancellation_reasons(Request request, Request reply) {
-
-    }
-
-    @Override
-    public void get_return_reasons(Request request, Request reply) {
-
-    }
-
-    @Override
-    public void get_rating_categories(Request request, Request reply) {
-
-    }
-
-    @Override
-    public void get_feedback_categories(Request request, Request reply) {
-
-    }
-
-    @Override
-    public void get_feedback_form(Request request, Request reply) {
-
-    }
-
 
 }
