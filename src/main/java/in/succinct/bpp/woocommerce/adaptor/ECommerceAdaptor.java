@@ -72,7 +72,7 @@ public class ECommerceAdaptor extends SearchAdaptor {
 
     @Override
     public boolean isTaxIncludedInPrice() {
-        return !getShop().getTaxSetting().getAttribute(SettingAttribute.AttributeKey.PRICES_INCLUDES_TAX).getValue().equals("no");
+        return getShop().getTaxSetting().getAttribute(SettingAttribute.AttributeKey.PRICES_INCLUDES_TAX).getValue().equals("yes");
     }
 
     @Override
