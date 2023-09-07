@@ -44,7 +44,7 @@ public class ECommerceAdaptor extends SearchAdaptor {
             ArrayList<Countries>  continents = getAllCountries(getAllContinents());
             Tuple<String, String> countryState = splitCountryState(generalSetting.getAttribute( SettingAttribute.AttributeKey.COUNTRY).getValue());
             Countries.Country country = getCountry(continents, countryState.first);
-            States.State state = country.getStates().get(countryState.second);
+            States.State state = country.getState().get(countryState.second);
             String address1 = generalSetting.getAttribute( SettingAttribute.AttributeKey.ADDRESS_1).getValue();
             String address2 = generalSetting.getAttribute( SettingAttribute.AttributeKey.ADDRESS_2).getValue();
             String city = generalSetting.getAttribute( SettingAttribute.AttributeKey.CITY).getValue();

@@ -42,7 +42,7 @@ public class Countries extends BecknObjectsWithId<Countries.Country> {
 
 
 
-        public States getStates() {
+        public States getState() {
             return get(States.class, CountryAttribute.STATE.getKey());
         }
     }
