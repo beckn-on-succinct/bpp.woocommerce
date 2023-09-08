@@ -11,7 +11,7 @@ public class Countries extends BecknObjectsWithId<Countries.Country> {
         super(array);
     }
 
-    public enum CountryAttribute {
+    public enum AttributeKey {
         CODE("code"),
         NAME("name"),
         CURRENCY_CODE("currency_code"),
@@ -21,7 +21,7 @@ public class Countries extends BecknObjectsWithId<Countries.Country> {
 
         private final String key;
 
-        CountryAttribute(String key) {
+        AttributeKey(String key) {
             this.key = key;
         }
 
@@ -36,14 +36,14 @@ public class Countries extends BecknObjectsWithId<Countries.Country> {
             super(object);
         }
 
-        public String getAttribute(CountryAttribute attribute){
+        public String getAttribute(AttributeKey attribute){
             return get(attribute.getKey());
         }
 
 
 
         public States getState() {
-            return get(States.class, CountryAttribute.STATE.getKey());
+            return get(States.class, AttributeKey.STATE.getKey());
         }
     }
 

@@ -59,7 +59,7 @@ public class ECommerceAdaptor extends SearchAdaptor {
             location.getAddress().setLocality(address2);
             location.getAddress().setCity(city);
             location.getAddress().setPinCode(pincode);
-            location.getAddress().setCountry(country.getAttribute(Countries.CountryAttribute.NAME));
+            location.getAddress().setCountry(country.getAttribute(Countries.AttributeKey.NAME));
             location.getAddress().setState(state.getName());
             return locations;
         });
@@ -67,7 +67,11 @@ public class ECommerceAdaptor extends SearchAdaptor {
 
     @Override
     public Items getItems() {
-        return null;
+        return cache.get(Items.class, () -> {
+            Items items = new Items();
+
+            return items;
+        });
     }
 
     @Override
