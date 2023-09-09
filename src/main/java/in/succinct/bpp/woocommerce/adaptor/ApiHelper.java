@@ -7,7 +7,6 @@ import com.venky.swf.db.model.application.Application;
 import com.venky.swf.db.model.application.ApplicationUtil;
 import com.venky.swf.integration.api.Call;
 import com.venky.swf.integration.api.HttpMethod;
-import com.venky.swf.integration.api.InputFormat;
 import org.jetbrains.annotations.NotNull;
 import org.jose4j.base64url.Base64;
 import org.json.simple.JSONAware;
@@ -43,7 +42,6 @@ public class ApiHelper {
         return "in.succinct.bpp.woocommerce";
     }
 
-
     /**
      * Retrieve the store URL.
      *
@@ -64,7 +62,7 @@ public class ApiHelper {
     }
 
     /**
-     * Returns the   Consumer secret   configuration value.
+     * Returns the Consumer secret configuration value.
      *
      * @return the secret configuration value
      */
@@ -72,16 +70,14 @@ public class ApiHelper {
         return adaptor.getConfiguration().get(String.format("%s.secret", getConfigPrefix()));
     }
 
-
     /**
      * Retrieves the client ID from the configuration.
      *
      * @return The client ID.
      */
-    public String getClientId(){
-        return adaptor.getConfiguration().get(String.format("%s.clientId",getConfigPrefix()));
+    public String getClientId() {
+        return adaptor.getConfiguration().get(String.format("%s.clientId", getConfigPrefix()));
     }
-
 
     /**
      * Returns the authentication string for the API.
@@ -96,7 +92,6 @@ public class ApiHelper {
         return String.format("Basic %s", new String(encodedCredentials));
     }
 
-
     /**
      * Initializes the Call object with the provided parameters.
      *
@@ -107,30 +102,26 @@ public class ApiHelper {
      * @return Configured Call object.
      */
     private Call<JSONObject> initializeCall(String relativeUrl, JSONObject parameter,
-                                            Map<String, String> addonHeaders, @NotNull HttpMethod reqMethod) {
+            Map<String, String> addonHeaders, @NotNull HttpMethod reqMethod) {
 
-        // Base configuration shared across all HTTP methods
-        Call<JSONObject> call = new  Call<JSONObject>()
-                .url(getStoreUrl(),relativeUrl)
+        Call<JSONObject> call = new Call<JSONObject>()
+                .url(getStoreUrl(), relativeUrl)
                 .header("content-type", MimeType.APPLICATION_JSON.toString())
-                .header("Authorization",getAuth())
+                .header("Authorization", getAuth())
                 .headers(addonHeaders)
-                .inputFormat(InputFormat.JSON)
-                .getResponseAsJson();
+                .input(parameter);
 
         switch (reqMethod) {
             case GET:
-                return call.method(HttpMethod.GET);
-
+                return call.method(HttpMethod.GET).getResponseAsJson();
             case POST:
-                return call.inputFormat(InputFormat.JSON).method(HttpMethod.POST);
-
+                return call.method(HttpMethod.POST).getResponseAsJson();
+            // Handle other HTTP methods as needed.
             default:
-                throw new IllegalArgumentException("Unsupported HTTP Method: " + reqMethod);
+                throw new IllegalArgumentException("Unsupported HTTP method");
         }
 
     }
-
 
     /**
      * Determine if a retry is required based on call status and retry count.
@@ -169,15 +160,13 @@ public class ApiHelper {
         return call; // return the new retry call
     }
 
-
     /**
      * Parse the error response.
      */
     @SuppressWarnings("unchecked")
-    private <T extends JSONAware> T parseJsonError( Call<JSONObject> call) {
+    private <T extends JSONAware> T parseJsonError(Call<JSONObject> call) {
         return (T) JSONValue.parse(new InputStreamReader(call.getErrorStream()));
     }
-
 
     /**
      * Sends a POST request and handles retries for certain conditions.
@@ -236,15 +225,18 @@ public class ApiHelper {
     }
 
     /**
-     * Retrieves a page of data from the given URL with the provided parameters and additional headers.
+     * Retrieves a page of data from the given URL with the provided parameters and
+     * additional headers.
      *
      * @param relativeUrl  The relative URL endpoint.
      * @param parameter    The JSON parameters to be sent in the request.
      * @param addonHeaders Additional headers for the request.
-     * @param <T>          The type of object to return within the Page. Must extend JSONAware.
+     * @param <T>          The type of object to return within the Page. Must extend
+     *                     JSONAware.
      * @return A page containing data and pagination links.
      */
-    public <T extends JSONAware> Page<T> getPage(String relativeUrl, JSONObject parameter, Map<String, String> addonHeaders) {
+    public <T extends JSONAware> Page<T> getPage(String relativeUrl, JSONObject parameter,
+            Map<String, String> addonHeaders) {
         Call<JSONObject> call = initializeCall(relativeUrl, parameter, addonHeaders, HttpMethod.GET);
 
         Page<T> page = new Page<>();
@@ -254,7 +246,6 @@ public class ApiHelper {
 
         return page;
     }
-
 
     /**
      * Populates the pagination links (next and previous) for a Page object.
@@ -268,7 +259,9 @@ public class ApiHelper {
 
         if (links != null && !links.isEmpty()) {
             String link = links.get(0);
-            Matcher matcher = Pattern.compile("(<)(https://[^?]*\\?page_info=[^&]*&limit=[0-9]*)(>; rel=)(previous|next)([ ,])*").matcher(link);
+            Matcher matcher = Pattern
+                    .compile("(<)(https://[^?]*\\?page=[^&]*&per_page=[0-9]*)(>; rel=)(previous|next)([ ,])*")
+                    .matcher(link);
             matcher.results().forEach(mr -> {
                 if ("next".equals(mr.group(4))) {
                     page.next = mr.group(2);
@@ -278,7 +271,6 @@ public class ApiHelper {
             });
         }
     }
-
 
     /**
      * Sends a POST request to the specified relative URL with the given parameters.
@@ -293,7 +285,6 @@ public class ApiHelper {
         return post(relativeUrl, parameter, new IgnoreCaseMap<>());
     }
 
-
     /**
      * Sends a GET request with the given parameters and URL.
      *
@@ -306,9 +297,9 @@ public class ApiHelper {
         return get(relativeUrl, parameter, new IgnoreCaseMap<>());
     }
 
-
     /**
-     * Retrieves a page of data from the specified relative URL with the given parameters.
+     * Retrieves a page of data from the specified relative URL with the given
+     * parameters.
      * Uses a default IgnoreCaseMap for the headers.
      *
      * @param relativeUrl the relative URL to fetch the page from
@@ -329,13 +320,16 @@ public class ApiHelper {
      * @return the response object of type T
      */
     public <T extends JSONAware> T putViaPost(String relativeUrl, JSONObject parameter) {
-        return post(relativeUrl, parameter, new IgnoreCaseMap<>() {{
-            put("X-HTTP-Method-Override", "PUT");
-        }});
+        return post(relativeUrl, parameter, new IgnoreCaseMap<>() {
+            {
+                put("X-HTTP-Method-Override", "PUT");
+            }
+        });
     }
 
     /**
-     * Sends a PUT request to the specified relative URL with the given parameters using the GET method.
+     * Sends a PUT request to the specified relative URL with the given parameters
+     * using the GET method.
      *
      * @param relativeUrl the relative URL to send the request to
      * @param parameter   the JSON object containing the request parameters
@@ -343,7 +337,8 @@ public class ApiHelper {
      * @param <T>         the type of the response object
      * @return the response object of type T
      */
-    public <T extends JSONAware> T putViaGet(String relativeUrl, JSONObject parameter, @NotNull Map<String, String> headers) {
+    public <T extends JSONAware> T putViaGet(String relativeUrl, JSONObject parameter,
+            @NotNull Map<String, String> headers) {
         // Set the X-HTTP-Method-Override header to "PUT"
         headers.put("X-HTTP-Method-Override", "PUT");
         // Send the GET request with the specified relative URL, parameters, and headers
@@ -351,7 +346,8 @@ public class ApiHelper {
     }
 
     /**
-     * Sends a DELETE request to the specified relative URL with the given parameters.
+     * Sends a DELETE request to the specified relative URL with the given
+     * parameters.
      *
      * @param relativeUrl The relative URL to send the request to.
      * @param parameter   The JSON object containing the parameters for the request.
