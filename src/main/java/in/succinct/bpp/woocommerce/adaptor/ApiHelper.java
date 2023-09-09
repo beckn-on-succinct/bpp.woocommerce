@@ -17,8 +17,7 @@ import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Map;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
+
 
 public class ApiHelper {
     final ECommerceAdaptor adaptor;
@@ -224,53 +223,7 @@ public class ApiHelper {
         return response;
     }
 
-    /**
-     * Retrieves a page of data from the given URL with the provided parameters and
-     * additional headers.
-     *
-     * @param relativeUrl  The relative URL endpoint.
-     * @param parameter    The JSON parameters to be sent in the request.
-     * @param addonHeaders Additional headers for the request.
-     * @param <T>          The type of object to return within the Page. Must extend
-     *                     JSONAware.
-     * @return A page containing data and pagination links.
-     */
-    public <T extends JSONAware> Page<T> getPage(String relativeUrl, JSONObject parameter,
-            Map<String, String> addonHeaders) {
-        Call<JSONObject> call = initializeCall(relativeUrl, parameter, addonHeaders, HttpMethod.GET);
 
-        Page<T> page = new Page<>();
-        page.data = call.getResponseAsJson();
-
-        populatePaginationLinks(page, call);
-
-        return page;
-    }
-
-    /**
-     * Populates the pagination links (next and previous) for a Page object.
-     *
-     * @param page The Page object to populate.
-     * @param call The Call object containing response headers.
-     * @param <T>  The type of object within the Page.
-     */
-    private <T extends JSONAware> void populatePaginationLinks(Page<T> page, @NotNull Call<JSONObject> call) {
-        List<String> links = call.getResponseHeaders().get("Link");
-
-        if (links != null && !links.isEmpty()) {
-            String link = links.get(0);
-            Matcher matcher = Pattern
-                    .compile("(<)(https://[^?]*\\?page=[^&]*&per_page=[0-9]*)(>; rel=)(previous|next)([ ,])*")
-                    .matcher(link);
-            matcher.results().forEach(mr -> {
-                if ("next".equals(mr.group(4))) {
-                    page.next = mr.group(2);
-                } else {
-                    page.previous = mr.group(2);
-                }
-            });
-        }
-    }
 
     /**
      * Sends a POST request to the specified relative URL with the given parameters.
@@ -296,20 +249,7 @@ public class ApiHelper {
     public <T extends JSONAware> T get(String relativeUrl, JSONObject parameter) {
         return get(relativeUrl, parameter, new IgnoreCaseMap<>());
     }
-
-    /**
-     * Retrieves a page of data from the specified relative URL with the given
-     * parameters.
-     * Uses a default IgnoreCaseMap for the headers.
-     *
-     * @param relativeUrl the relative URL to fetch the page from
-     * @param parameter   the JSON object containing the parameters for the request
-     * @return a Page object containing the retrieved data
-     */
-    public <T extends JSONAware> Page<T> getPage(String relativeUrl, JSONObject parameter) {
-        return getPage(relativeUrl, parameter, new IgnoreCaseMap<>());
-    }
-
+    
     /**
      * Sends a POST request to the specified relative URL with the given parameter
      * and sets the X-HTTP-Method-Override header to "PUT".
