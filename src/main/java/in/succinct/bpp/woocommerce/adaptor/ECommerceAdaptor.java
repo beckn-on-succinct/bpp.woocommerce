@@ -57,6 +57,10 @@ public class ECommerceAdaptor extends SearchAdaptor {
             location.getAddress().setPinCode(pincode);
             location.getAddress().setCountry(country.getAttribute(Countries.AttributeKey.NAME));
             location.getAddress().setState(state.getName());
+            location.setTime(getProviderConfig().getTime());
+            location.setDescriptor(new Descriptor());
+            location.getDescriptor().setName(location.getAddress().getName());
+            locations.add(location);
             return locations;
         });
     }
@@ -312,8 +316,6 @@ public class ECommerceAdaptor extends SearchAdaptor {
         for (Fulfillment fulfillment : getFulfillments()) {
             item.getFulfillmentIds().add(fulfillment.getId());
         }
-
-
 
         return item;
 
