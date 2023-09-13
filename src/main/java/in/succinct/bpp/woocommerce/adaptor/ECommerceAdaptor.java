@@ -1,10 +1,18 @@
 package in.succinct.bpp.woocommerce.adaptor;
 
+import com.venky.core.util.ObjectUtil;
+import com.venky.swf.db.Database;
+import com.venky.swf.db.JdbcTypeHelper;
 import com.venky.swf.plugins.beckn.messaging.Subscriber;
+import com.venky.swf.plugins.collab.db.model.config.City;
+import com.venky.swf.plugins.collab.db.model.config.Country;
+import com.venky.swf.plugins.collab.db.model.config.State;
 import in.succinct.beckn.*;
 import in.succinct.bpp.core.adaptor.TimeSensitiveCache;
 import in.succinct.bpp.core.adaptor.api.BecknIdHelper;
 import in.succinct.bpp.core.adaptor.fulfillment.FulfillmentStatusAdaptor;
+import in.succinct.bpp.core.db.model.LocalOrderSynchronizerFactory;
+import in.succinct.bpp.core.db.model.ProviderConfig;
 import in.succinct.bpp.search.adaptor.SearchAdaptor;
 import in.succinct.bpp.core.adaptor.api.BecknIdHelper.Entity;
 import in.succinct.bpp.woocommerce.model.*;
@@ -12,11 +20,16 @@ import org.jetbrains.annotations.NotNull;
 import org.json.simple.JSONObject;
 import org.json.simple.JSONArray;
 
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
 import java.time.Duration;
 import java.util.*;
 import java.util.List;
 
 public class ECommerceAdaptor extends SearchAdaptor {
+
+    private static final JdbcTypeHelper.TypeConverter<Double> doubleTypeConverter = Database.getJdbcTypeHelper("")
+            .getTypeRef(double.class).getTypeConverter();
 
     final ApiHelper helper;
     final TimeSensitiveCache cache = new TimeSensitiveCache(Duration.ofDays(1));
@@ -35,32 +48,8 @@ public class ECommerceAdaptor extends SearchAdaptor {
     @Override
     public Locations getProviderLocations() {
         return cache.get(Locations.class, () -> {
-            GeneralSetting generalSetting = getShop().getGeneralSetting();
             Locations locations = new Locations();
-            ArrayList<Countries> continents = getAllCountries(getAllContinents());
-            Tuple<String, String> countryState = splitCountryState(
-                    generalSetting.getAttribute(SettingAttribute.AttributeKey.COUNTRY).getValue());
-            Countries.Country country = getCountry(continents, countryState.first);
-            States.State state = country.getState().get(countryState.second);
-            String address1 = generalSetting.getAttribute(SettingAttribute.AttributeKey.ADDRESS_1).getValue();
-            String address2 = generalSetting.getAttribute(SettingAttribute.AttributeKey.ADDRESS_2).getValue();
-            String city = generalSetting.getAttribute(SettingAttribute.AttributeKey.CITY).getValue();
-            String pincode = generalSetting.getAttribute(SettingAttribute.AttributeKey.CITY).getValue();
-
-            Location location = new Location();
-            location.setId(BecknIdHelper.getBecknId(this.getSubscriber().getSubscriberId(),
-                    this.getSubscriber(), Entity.provider_location));
-            location.setAddress(new Address());
-            location.getAddress().setStreet(address1);
-            location.getAddress().setLocality(address2);
-            location.getAddress().setCity(city);
-            location.getAddress().setPinCode(pincode);
-            location.getAddress().setCountry(country.getAttribute(Countries.AttributeKey.NAME));
-            location.getAddress().setState(state.getName());
-            location.setTime(getProviderConfig().getTime());
-            location.setDescriptor(new Descriptor());
-            location.getDescriptor().setName(location.getAddress().getName());
-            locations.add(location);
+            locations.add(providerLocation());
             return locations;
         });
     }
@@ -87,8 +76,66 @@ public class ECommerceAdaptor extends SearchAdaptor {
     }
 
     @Override
-    public Order initializeDraftOrder(Request request) {
-        return null;
+    public Order initializeDraftOrder(@NotNull Request request) {
+        WoocommerceOrder woocommerceOrder = new WoocommerceOrder();
+        Order becknOrder = request.getMessage().getOrder();
+        fixFulfillment(request.getContext(), becknOrder);
+        fixLocation(becknOrder);
+        Fulfillment fulfillment = becknOrder.getFulfillment();
+        Location storeLocation = becknOrder.getProviderLocation();
+
+        ProviderConfig.Serviceability serviceability = fulfillment.getEnd() == null ? null
+                : getProviderConfig().getServiceability(fulfillment.getType(), fulfillment.getEnd(), storeLocation);
+        if (serviceability != null && !serviceability.isServiceable()) {
+            throw serviceability.getReason();
+        }
+
+        woocommerceOrder.setId(LocalOrderSynchronizerFactory.getInstance().getLocalOrderSynchronizer(getSubscriber())
+                .getLocalOrderId(request.getContext().getTransactionId()));
+        woocommerceOrder.setCurrency(AttributeKey.inr.getKey());
+        woocommerceOrder.setSourceName(AttributeKey.beckn.getKey());
+        woocommerceOrder.setName(AttributeKey.becknDash.getKey() + request.getContext().getTransactionId());
+
+        for (String key : new String[] { AttributeKey.bapId.getKey(), AttributeKey.bapUri.getKey(),
+                AttributeKey.domain.getKey(), AttributeKey.transactionId.getKey(), AttributeKey.city.getKey(),
+                AttributeKey.country.getKey(),
+                AttributeKey.coreVersion.getKey(), }) {
+            Tag meta = new Tag();
+            meta.setName(String.format("context.%s", key));
+            meta.setValue(request.getContext().get(key));
+
+        }
+
+        if (!ObjectUtil.isVoid(woocommerceOrder.getId())) {
+            delete(woocommerceOrder);
+        }
+
+        WoocommerceOrder.OrderShipping orderShipping = createWoocommerceShipping(fulfillment);
+        if (orderShipping != null) {
+            woocommerceOrder.setOrderShipping(orderShipping);
+        }
+
+        if (becknOrder.getBilling() == null) {
+            becknOrder.setBilling(new Billing());
+        }
+        if (becknOrder.getBilling().getAddress() == null) {
+            becknOrder.getBilling().setAddress(becknOrder.getFulfillment().getEnd().getLocation().getAddress());
+        }
+
+        Billing billing = becknOrder.getBilling();
+        WoocommerceOrder.OrderBilling orderBilling = createWoocommerceBilling(billing);
+        if (orderBilling != null) {
+            woocommerceOrder.setOrderBilling(orderBilling);
+        }
+
+        woocommerceOrder.setId(Long.parseLong(
+                BecknIdHelper.getLocalUniqueId(getProviderConfig().getLocation().getId(), Entity.provider_location)));
+
+        if (becknOrder.getItems() != null) {
+            woocommerceOrder.setLineItems(createWoocommerceLineItems(becknOrder.getItems()));
+        }
+
+        return getBecknOrder(createWoocommerceOrder(woocommerceOrder));
     }
 
     @Override
@@ -114,6 +161,16 @@ public class ECommerceAdaptor extends SearchAdaptor {
     @Override
     public List<FulfillmentStatusAdaptor.FulfillmentStatusAudit> getStatusAudit(Order order) {
         return null;
+    }
+
+    private static Date convertStringToDate(String dateString) {
+        SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss");
+        try {
+            return dateFormat.parse(dateString);
+        } catch (ParseException e) {
+            // handle the parsing exception
+            return null;
+        }
     }
 
     private Shop getShop() {
@@ -151,38 +208,43 @@ public class ECommerceAdaptor extends SearchAdaptor {
 
     @SuppressWarnings("unchecked")
     private @NotNull ArrayList<Continents.Continent> getAllContinents() {
-        ArrayList<Continents.Continent> continentsList = new ArrayList<>();
+        return cache.get(ArrayList.class, () -> {
+            ArrayList<Continents.Continent> continentsList = new ArrayList<>();
 
-        JSONArray continents = helper.get(new Continents().getApiEndpoint(), new JSONObject());
-        if (continents == null || continents.isEmpty())
+            JSONArray continents = helper.get(new Continents().getApiEndpoint(), new JSONObject());
+            if (continents == null || continents.isEmpty())
+                return continentsList;
+
+            continents.forEach(o -> {
+                JSONObject continent = (JSONObject) o;
+                continentsList.add(new Continents.Continent(continent));
+            });
+
             return continentsList;
-
-        continents.forEach(o -> {
-            JSONObject continent = (JSONObject) o;
-            continentsList.add(new Continents.Continent(continent));
         });
-
-        return continentsList;
     }
 
-    private ArrayList<Countries> getAllCountries(ArrayList<Continents.Continent> continents) {
-        ArrayList<Countries> countriesList = new ArrayList<>();
-
-        continents.forEach(continent -> {
-            countriesList.add(continent.getCountries());
+    private @NotNull ArrayList<Countries> getAllCountries(@NotNull ArrayList<Continents.Continent> continents) {
+        return cache.get(ArrayList.class, () -> {
+            ArrayList<Countries> countriesList = new ArrayList<>();
+            continents.forEach(continent -> {
+                countriesList.add(continent.getCountries());
+            });
+            return countriesList;
         });
-        return countriesList;
     }
 
-    private Countries.Country getCountry(ArrayList<Countries> continentCountries, String code) {
-        return continentCountries.stream()
-                .map(countries -> countries.getCountry(code)) // map each Country to the desired Country
-                .filter(Objects::nonNull) // filter out any null results
-                .findFirst() // get the first matching country
-                .orElse(null); // return null if no match was found
+    private Countries.Country getCountry(@NotNull ArrayList<Countries> continentCountries, String code) {
+        return cache.get(Countries.Country.class, () -> {
+            return continentCountries.stream()
+                    .map(countries -> countries.getCountry(code)) // map each Country to the desired Country
+                    .filter(Objects::nonNull) // filter out any null results
+                    .findFirst() // get the first matching country
+                    .orElse(null); // return null if no match was found
+        });
     }
 
-    private String generateQueryURL(@NotNull String endpoint, Map<String, String> queryParams) {
+    private @NotNull String generateQueryURL(@NotNull String endpoint, Map<String, String> queryParams) {
         StringBuilder urlBuilder = new StringBuilder(endpoint);
         if (queryParams == null || queryParams.isEmpty()) {
             return urlBuilder.toString();
@@ -209,13 +271,13 @@ public class ECommerceAdaptor extends SearchAdaptor {
             final int maxPages = 25;
             JSONArray allProductsJson = new JSONArray();
             Map<String, String> queryParams = new HashMap<>();
-            queryParams.put(Products.AttributeKey.status.getKey(), "publish");
-            queryParams.put(Products.AttributeKey.stock_status.getKey(), "instock");
-            queryParams.put(Products.AttributeKey.per_page.getKey(), String.valueOf(per_page));
+            queryParams.put(AttributeKey.status.getKey(), AttributeKey.publish.getKey());
+            queryParams.put(AttributeKey.stockStatus.getKey(), AttributeKey.instock.getKey());
+            queryParams.put(AttributeKey.perPage.getKey(), String.valueOf(per_page));
 
             while (true) {
-                queryParams.put(Products.AttributeKey.page.getKey(), String.valueOf(page));
-                String finalUrl = generateQueryURL("products", queryParams);
+                queryParams.put(AttributeKey.page.getKey(), String.valueOf(page));
+                String finalUrl = generateQueryURL(AttributeKey.products.getKey(), queryParams);
                 JSONArray response = helper.get(finalUrl, new JSONObject());
 
                 if (response.isEmpty()) {
@@ -251,10 +313,10 @@ public class ECommerceAdaptor extends SearchAdaptor {
         });
     }
 
-    private Item createItem(Items items, Products.Product product) {
+    private @NotNull Item createItem(Items items, Products.@NotNull Product product) {
         Item item = new Item();
 
-        item.setId(BecknIdHelper.getBecknId(String.valueOf(product.get(Products.AttributeKey.id.getKey())),
+        item.setId(BecknIdHelper.getBecknId(String.valueOf(product.get(AttributeKey.id.getKey())),
                 this.getSubscriber(), Entity.item));
         item.setDescriptor(new Descriptor());
         Descriptor descriptor = item.getDescriptor();
@@ -319,6 +381,259 @@ public class ECommerceAdaptor extends SearchAdaptor {
 
         return item;
 
+    }
+
+    private void delete(@NotNull WoocommerceOrder draftOrder) {
+        Map<String, String> queryParams = new HashMap<>();
+        queryParams.put(AttributeKey.force.getKey(), "true");
+        helper.delete(
+                generateQueryURL(String.format("%s/%s", AttributeKey.orders.getKey(), draftOrder.getId()), queryParams),
+                new JSONObject());
+        draftOrder.rm(AttributeKey.id.getKey());
+    }
+
+    private WoocommerceOrder.OrderShipping createWoocommerceShipping(Fulfillment source) {
+        if (source == null) {
+            return null;
+        }
+        WoocommerceOrder.OrderShipping shipping = new WoocommerceOrder.OrderShipping();
+        User user = source.getCustomer();
+        Address address = source.getEnd().getLocation().getAddress();
+        Contact contact = source.getEnd().getContact();
+        if (user == null && address != null) {
+            user = new User();
+            user.setPerson(new Person());
+            user.getPerson().setName(address.getName());
+        }
+
+        if (user != null) {
+            String[] parts = user.getPerson().getName().split(" ");
+            shipping.setFirstName(parts[0]);
+            shipping.setLastName(user.getPerson().getName().substring(parts[0].length()));
+        }
+        if (address != null) {
+            if (address.getCountry() == null) {
+                address.setCountry(getProviderConfig().getLocation().getAddress().getCountry());
+            }
+            Country country = Country.findByName(address.getCountry());
+            State state = State.findByCountryAndName(country.getId(), address.getState());
+            City city = City.findByStateAndName(state.getId(), address.getCity());
+            shipping.setAddress1(address.getDoor() + "," + address.getBuilding());
+            shipping.setAddress2(address.getStreet() + "," + address.getLocality());
+            shipping.setCity(city.getName());
+            shipping.setStateCode(state.getCode());
+            shipping.setPostcode(address.getAreaCode());
+            shipping.setCountryCode(country.getIsoCode2());
+            shipping.setEmail(contact.getEmail());
+            shipping.setPhone(contact.getPhone());
+        }
+        return shipping;
+    }
+
+    private WoocommerceOrder.OrderBilling createWoocommerceBilling(Billing source) {
+        if (source == null) {
+            return null;
+        }
+
+        WoocommerceOrder.OrderBilling billing = new WoocommerceOrder.OrderBilling();
+        String[] parts = source.getName().split(" ");
+        billing.setFirstName(parts[0]);
+        billing.setLastName(source.getName().substring(parts[0].length()));
+        Address address = source.getAddress();
+        if (address != null) {
+            billing.setAddress1(source.getAddress().getDoor() + "," + source.getAddress().getBuilding());
+            billing.setAddress2(source.getAddress().getStreet() + "," + source.getAddress().getLocality());
+            Country country = Country.findByName(source.getAddress().getCountry());
+            State state = State.findByCountryAndName(country.getId(), source.getAddress().getState());
+            City city = City.findByStateAndName(state.getId(), source.getAddress().getCity());
+            billing.setCity(city.getName());
+            billing.setStateCode(city.getState().getCode());
+            billing.setCountryCode(city.getState().getCountry().getIsoCode2());
+            billing.setPostcode(source.getAddress().getAreaCode());
+        }
+
+        billing.setEmail(source.getEmail());
+        billing.setPhone(source.getPhone());
+
+        return billing;
+
+    }
+
+    private WoocommerceOrder.@NotNull LineItems createWoocommerceLineItems(@NotNull Order.NonUniqueItems items) {
+        WoocommerceOrder.LineItems lineItems = new WoocommerceOrder.LineItems();
+        items.forEach(item -> {
+            WoocommerceOrder.LineItem lineItem = new WoocommerceOrder.LineItem();
+            lineItem.setProductId(BecknIdHelper.getLocalUniqueId(item.getId(), Entity.item));
+            lineItem.setQuantity(item.getQuantity().getCount());
+            lineItems.add(item);
+        });
+        return lineItems;
+    }
+
+    private @NotNull Payment createBecknPayment(@NotNull WoocommerceOrder woocommerceOrder) {
+        Payment payment = new Payment();
+        if (!woocommerceOrder.isOrderPaid()) {
+            payment.setStatus(Payment.PaymentStatus.NOT_PAID);
+        } else {
+            payment.setStatus(Payment.PaymentStatus.PAID);
+        }
+        payment.setType(Payment.PaymentType.POST_FULFILLMENT);
+        payment.setParams(new Payment.Params());
+        payment.getParams().setCurrency(
+                getShop().getGeneralSetting().getAttribute(SettingAttribute.AttributeKey.CURRENCY).getValue());
+        payment.getParams().setAmount(Double.parseDouble(woocommerceOrder.getTotal()));
+        return payment;
+    }
+
+    private @NotNull WoocommerceOrder createWoocommerceOrder(@NotNull WoocommerceOrder woocommerceOrder) {
+        JSONObject order = helper.post("/orders", woocommerceOrder.getInner());
+        return new WoocommerceOrder(order);
+    }
+
+    private Order.@NotNull NonUniqueItems createBecknItems(WoocommerceOrder.@NotNull LineItems lineItems) {
+        Order.NonUniqueItems items = new Order.NonUniqueItems();
+
+        lineItems.forEach(lineItem -> {
+            Item item = new Item();
+            item.setDescriptor(new Descriptor());
+            item.setId(BecknIdHelper.getBecknId(String.valueOf(lineItem.get(AttributeKey.productId.getKey())),
+                    this.getSubscriber(), Entity.item));
+            item.getDescriptor().setName(lineItem.getName());
+            item.getDescriptor().setCode(lineItem.getSku());
+            if (ObjectUtil.isVoid(item.getDescriptor().getCode())) {
+                item.getDescriptor().setCode(item.getDescriptor().getName());
+            }
+            item.getDescriptor().setLongDesc(item.getDescriptor().getName());
+            item.getDescriptor().setShortDesc(item.getDescriptor().getName());
+            item.setQuantity(new Quantity());
+            item.getQuantity().setCount(doubleTypeConverter.valueOf(lineItem.getQuantity()).intValue());
+
+            Price price = new Price();
+            item.setPrice(price);
+
+            price.setListedValue(doubleTypeConverter.valueOf(lineItem.getSubtotal()));
+            price.setValue(doubleTypeConverter.valueOf(lineItem.getTotal()));
+            price.setCurrency(AttributeKey.inr.getKey());
+            items.add(item);
+        });
+
+        return items;
+    }
+
+    private @NotNull Location providerLocation() {
+        GeneralSetting generalSetting = getShop().getGeneralSetting();
+
+        ArrayList<Countries> continents = getAllCountries(getAllContinents());
+        Tuple<String, String> countryState = splitCountryState(
+                generalSetting.getAttribute(SettingAttribute.AttributeKey.COUNTRY).getValue());
+        Countries.Country country = getCountry(continents, countryState.first);
+        States.State state = country.getState().get(countryState.second);
+        String address1 = generalSetting.getAttribute(SettingAttribute.AttributeKey.ADDRESS_1).getValue();
+        String address2 = generalSetting.getAttribute(SettingAttribute.AttributeKey.ADDRESS_2).getValue();
+        String city = generalSetting.getAttribute(SettingAttribute.AttributeKey.CITY).getValue();
+        String pincode = generalSetting.getAttribute(SettingAttribute.AttributeKey.CITY).getValue();
+
+        Address address = new Address();
+        address.setStreet(address1);
+        address.setLocality(address2);
+        address.setCity(city);
+        address.setPinCode(pincode);
+        address.setCountry(country.getAttribute(AttributeKey.name));
+        address.setState(state.getName());
+
+        Location location = new Location();
+        location.setId(BecknIdHelper.getBecknId(this.getSubscriber().getSubscriberId(),
+                this.getSubscriber(), Entity.provider_location));
+        location.setAddress(address);
+        location.setTime(getProviderConfig().getTime());
+        location.setDescriptor(new Descriptor());
+        location.getDescriptor().setName(location.getAddress().getName());
+        return location;
+    }
+
+    private @NotNull Order getBecknOrder(WoocommerceOrder woocommerceOrder) {
+        Order order = new Order();
+        order.setPayment(createBecknPayment(woocommerceOrder));
+        Quote quote = new Quote();
+        order.setQuote(quote);
+        quote.setTtl(15 * 60);
+        quote.setPrice(new Price());
+        quote.getPrice().setValue(order.getPayment().getParams().getAmount());
+        quote.getPrice().setCurrency(order.getPayment().getParams().getCurrency());
+        quote.setBreakUp(new BreakUp());
+        BreakUp.BreakUpElement element = quote.getBreakUp().createElement(BreakUp.BreakUpElement.BreakUpCategory.item,
+                "Total Product", quote.getPrice());
+        quote.getBreakUp().add(element);
+
+        // Delivery breakup to be filled.
+        order.setBilling(woocommerceOrder.getOrderBilling().toBeckn());
+        order.setId(BecknIdHelper.getBecknId(String.valueOf(woocommerceOrder.get(AttributeKey.id.getKey())),
+                this.getSubscriber(), Entity.order));
+        order.setState(woocommerceOrder.getBecknOrderStatus());
+        order.setItems(createBecknItems(woocommerceOrder.getLineItems()));
+
+        order.setFulfillment(new Fulfillment());
+        order.getFulfillment().setEnd(new FulfillmentStop());
+        order.getFulfillment().getEnd().setLocation(new Location());
+        order.getFulfillment().getEnd().getLocation().setAddress(new Address());
+        order.getFulfillment().getEnd().setContact(new Contact());
+        order.getFulfillment().setCustomer(new User());
+        order.getFulfillment().setId(BecknIdHelper.getBecknId(String.valueOf(woocommerceOrder.getId()),
+                this.getSubscriber(), Entity.fulfillment));
+
+        Locations locations = new Locations();
+        locations.add(providerLocation());
+
+        if (!locations.isEmpty()) {
+            order.getFulfillment().setStart(new FulfillmentStop());
+            order.getFulfillment().getStart().setLocation(locations.get(0));
+        }
+
+        WoocommerceOrder.OrderShipping shipping = woocommerceOrder.getOrderShipping();
+        WoocommerceOrder.OrderBilling billing = woocommerceOrder.getOrderBilling();
+        String[] address1_parts = shipping.getAddress1().split(",");
+        String[] address2_parts = shipping.getAddress2().split(",");
+        User user = order.getFulfillment().getCustomer();
+        user.setPerson(new Person());
+        Person person = user.getPerson();
+        person.setName(shipping.getFirstName() + " " + shipping.getLastName());
+        if (address1_parts.length == 0) {
+            address1_parts = billing.getAddress1().split(",");
+            address2_parts = billing.getAddress2().split(",");
+        }
+
+        if (person.getName().isEmpty()) {
+            person.setName(billing.getFirstName() + " " + billing.getLastName());
+        }
+
+        Address address = order.getFulfillment().getEnd().getLocation().getAddress();
+        address.setDoor(address1_parts[0]);
+        if (address1_parts.length > 1) {
+            address.setBuilding(address1_parts[1]);
+        }
+        address.setStreet(address2_parts[0]);
+        if (address2_parts.length > 1) {
+            address.setLocality(address2_parts[1]);
+        }
+        Country country = Country.findByISO(shipping.getCountryCode());
+        State state = State.findByCountryAndCode(country.getId(), shipping.getStateCode());
+        City city = City.findByStateAndName(state.getId(), shipping.getCity());
+        address.setCountry(country.getName());
+        address.setState(state.getName());
+        address.setPinCode(shipping.getPostcode());
+        address.setCity(city.getName());
+
+        order.getFulfillment().getEnd().getContact().setPhone(shipping.getPhone());
+        order.getFulfillment().getEnd().getContact().setEmail(shipping.getEmail());
+
+        order.setProvider(new Provider());
+        order.getProvider().setId(getSubscriber().getAppId());
+        order.setProviderLocation(locations.get(0));
+
+        order.setCreatedAt(convertStringToDate(woocommerceOrder.getCreateDateGmt()));
+        order.setUpdatedAt(convertStringToDate(woocommerceOrder.getUpdatedDateGmt()));
+
+        return order;
     }
 
 }
