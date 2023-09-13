@@ -31,7 +31,7 @@ public class Products extends BecknObjectsWithId<Products.Product> {
         }
 
         public String getStockStatus() {
-            return get(AttributeKey.stock_status.getKey());
+            return get(AttributeKey.stockStatus.getKey());
         }
 
         public boolean isPurchasable() {
@@ -39,7 +39,7 @@ public class Products extends BecknObjectsWithId<Products.Product> {
         }
 
         public double getRegularPrice() {
-            String priceString = get(AttributeKey.regular_price.getKey());
+            String priceString = get(AttributeKey.regularPrice.getKey());
             try {
                 return Double.parseDouble(priceString);
             } catch (NumberFormatException e) {
@@ -66,7 +66,7 @@ public class Products extends BecknObjectsWithId<Products.Product> {
 
         public String getParentId() {
 
-            return get(AttributeKey.parent_id.getKey()).toString();
+            return get(AttributeKey.parentId.getKey()).toString();
         }
 
         public String getSku() {
@@ -78,11 +78,11 @@ public class Products extends BecknObjectsWithId<Products.Product> {
         }
 
         public String getShortDescription() {
-            return get(AttributeKey.short_description.getKey());
+            return get(AttributeKey.shortDescription.getKey());
         }
 
         public String getTaxStatus() {
-            return get(AttributeKey.tax_status.getKey());
+            return get(AttributeKey.taxStatus.getKey());
         }
 
         public ProductDimension getDimension() {
@@ -225,54 +225,4 @@ public class Products extends BecknObjectsWithId<Products.Product> {
             super(object);
         }
     }
-
-    public static enum AttributeKey {
-        images("images"),
-        attributes("attributes"),
-        default_attributes("default_attributes"),
-        status("status"),
-        stock_status("stock_status"),
-        purchasable("purchasable"),
-        length("length"),
-        width("width"),
-        height("height"),
-        name("name"),
-        position("position"),
-        options("options"),
-        type("type"),
-        price("price"),
-        regular_price("regular_price"),
-        weight("weight"),
-        dimension("dimension"),
-        parent_id("parent_id"),
-        categories("categories"),
-        tags("tags"),
-        variations("variations"),
-        page("page"),
-        per_page("per_page"),
-        id("id"),
-        sku("sku"),
-        description("description"),
-        short_description("short_description"),
-        tax_status("tax_status"),
-        tax_class("tax_class"),
-
-
-        ;
-
-        private final String key;
-
-        AttributeKey(String key) {
-            this.key = key;
-        }
-
-        public String getKey() {
-            return key;
-        }
-
-        public static String getVariantApiEndpoint(String variationId) {
-            return String.format("/settings/%s/%s", variationId, AttributeKey.variations.getKey());
-        }
-    }
-
 }

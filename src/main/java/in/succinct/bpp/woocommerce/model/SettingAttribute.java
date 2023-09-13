@@ -18,7 +18,9 @@ public class SettingAttribute extends WooCommerceObjectWithId {
         CITY("woocommerce_store_city", SettingGroup.GENERAL),
         COUNTRY("woocommerce_store_country", SettingGroup.GENERAL),
         CONTINENTS("continents", SettingGroup.DATA),
-        PRICES_INCLUDES_TAX("woocommerce_prices_include_tax", SettingGroup.TAX),;
+        PRICES_INCLUDES_TAX("woocommerce_prices_include_tax", SettingGroup.TAX),
+        CURRENCY("woocommerce_currency", SettingGroup.GENERAL),
+        ;
 
         private final String key;
 

@@ -15,22 +15,6 @@ public class Continents extends BecknObjectsWithId<Continents.Continent> {
         super(array);
     }
 
-    public enum ContinentAttribute {
-        CODE("code"),
-        NAME("name"),
-        COUNTRIES("countries");
-
-        private final String key;
-
-        ContinentAttribute(String key) {
-            this.key = key;
-        }
-
-        public String getKey() {
-            return key;
-        }
-    }
-
     public String getApiEndpoint() {
         return String.format("/settings/%s/%s", SettingGroup.DATA.getKey(), SettingAttribute.AttributeKey.CONTINENTS.getKey());
     }
@@ -42,7 +26,7 @@ public class Continents extends BecknObjectsWithId<Continents.Continent> {
         }
 
         public Countries getCountries() {
-            return get(Countries.class, ContinentAttribute.COUNTRIES.getKey());
+            return get(Countries.class, AttributeKey.countries.getKey());
         }
     }
 

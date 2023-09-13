@@ -11,25 +11,6 @@ public class Countries extends BecknObjectsWithId<Countries.Country> {
         super(array);
     }
 
-    public enum AttributeKey {
-        CODE("code"),
-        NAME("name"),
-        CURRENCY_CODE("currency_code"),
-        WEIGHT_UNIT("weight_unit"),
-        DIMENSION_UNIT("dimension_unit"),
-        STATE("state"),;
-
-        private final String key;
-
-        AttributeKey(String key) {
-            this.key = key;
-        }
-
-        public String getKey() {
-            return key;
-        }
-    }
-
     public static class Country extends WooCommerceObjectWithId {
 
         public Country(JSONObject object) {
@@ -40,16 +21,13 @@ public class Countries extends BecknObjectsWithId<Countries.Country> {
             return get(attribute.getKey());
         }
 
-
-
         public States getState() {
-            return get(States.class, AttributeKey.STATE.getKey());
+            return get(States.class, AttributeKey.state.getKey());
         }
     }
 
     public Country getCountry(String code){
         return get(Country.class, code);
     }
-
 
 }

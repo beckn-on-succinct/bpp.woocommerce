@@ -19,12 +19,12 @@ public  class States extends BecknObjectsWithId<State> {
         }
 
         public String getCode(){
-            return get("code");
+            return get(AttributeKey.code.getKey());
         }
 
 
         public String getName(){
-            return get("name");
+            return get(AttributeKey.name.getKey());
         }
 
     }

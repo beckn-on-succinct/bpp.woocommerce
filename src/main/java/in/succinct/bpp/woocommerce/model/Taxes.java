@@ -6,9 +6,7 @@ import org.json.simple.JSONArray;
 import org.json.simple.JSONObject;
 
 public class Taxes extends BecknObjectsWithId<Taxes.Tax> {
-    public Taxes() {
 
-    }
 
     public Taxes(JSONArray object) {
         super(object);
