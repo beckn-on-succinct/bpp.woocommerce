@@ -7,6 +7,7 @@ import com.venky.swf.plugins.beckn.messaging.Subscriber;
 import com.venky.swf.plugins.collab.db.model.config.City;
 import com.venky.swf.plugins.collab.db.model.config.Country;
 import com.venky.swf.plugins.collab.db.model.config.State;
+import com.venky.swf.routing.Config;
 import in.succinct.beckn.*;
 import in.succinct.bpp.core.adaptor.TimeSensitiveCache;
 import in.succinct.bpp.core.adaptor.api.BecknIdHelper;
@@ -17,6 +18,7 @@ import in.succinct.bpp.search.adaptor.SearchAdaptor;
 import in.succinct.bpp.core.adaptor.api.BecknIdHelper.Entity;
 import in.succinct.bpp.woocommerce.model.*;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 import org.json.simple.JSONObject;
 import org.json.simple.JSONArray;
 
@@ -135,22 +137,40 @@ public class ECommerceAdaptor extends SearchAdaptor {
             woocommerceOrder.setLineItems(createWoocommerceLineItems(becknOrder.getItems()));
         }
 
-        return getBecknOrder(createWoocommerceOrder(woocommerceOrder));
+        return getBecknOrder(createWoocommerceOrder(woocommerceOrder.getInner()));
     }
 
     @Override
     public Order confirmDraftOrder(Order order) {
+        if (order == null) {
+            throw new RuntimeException("No Order passed");
+        }
+        String woocommerceOrderId = LocalOrderSynchronizerFactory.getInstance()
+                .getLocalOrderSynchronizer(getSubscriber()).getLocalOrderId(order);
+        WoocommerceOrder woocommerceOrder = getWoocommerceOrderDetails(woocommerceOrderId);
+
+        if (Config.instance().isDevelopmentEnvironment()
+                && order.getPayment().getStatus() == Payment.PaymentStatus.PAID) {
+        }
+
         return null;
     }
 
     @Override
     public Order getStatus(Order order) {
-        return null;
+        return getBecknOrder(getWoocommerceOrderDetails(order.getId()));
     }
 
     @Override
     public Order cancel(Order order) {
-        return null;
+
+        String woocommerceOrderId = LocalOrderSynchronizerFactory.getInstance()
+                .getLocalOrderSynchronizer(getSubscriber()).getLocalOrderId(order);
+
+        JSONObject params = new JSONObject();
+        params.put("status", "cancelled");
+        JSONObject outOrder = helper.putViaPost("/orders/" + woocommerceOrderId, params);
+        return getBecknOrder(createWoocommerceOrder(outOrder));
     }
 
     @Override
@@ -485,8 +505,8 @@ public class ECommerceAdaptor extends SearchAdaptor {
         return payment;
     }
 
-    private @NotNull WoocommerceOrder createWoocommerceOrder(@NotNull WoocommerceOrder woocommerceOrder) {
-        JSONObject order = helper.post("/orders", woocommerceOrder.getInner());
+    private @NotNull WoocommerceOrder createWoocommerceOrder(@NotNull JSONObject parameter) {
+        JSONObject order = helper.post("/orders", parameter);
         return new WoocommerceOrder(order);
     }
 
@@ -634,6 +654,16 @@ public class ECommerceAdaptor extends SearchAdaptor {
         order.setUpdatedAt(convertStringToDate(woocommerceOrder.getUpdatedDateGmt()));
 
         return order;
+    }
+
+    private @Nullable WoocommerceOrder getWoocommerceOrderDetails(@NotNull String orderId) {
+        try {
+            JSONObject orderDetails = helper.get("/orders/" + orderId, new JSONObject());
+            return new WoocommerceOrder(orderDetails);
+        } catch (Exception e) {
+            return null;
+        }
+
     }
 
 }
