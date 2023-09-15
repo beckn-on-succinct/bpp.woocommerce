@@ -97,15 +97,16 @@ public class ECommerceAdaptor extends SearchAdaptor {
         woocommerceOrder.setCurrency(AttributeKey.inr.getKey());
         woocommerceOrder.setSourceName(AttributeKey.beckn.getKey());
         woocommerceOrder.setName(AttributeKey.becknDash.getKey() + request.getContext().getTransactionId());
+        woocommerceOrder.setMetaDataArray(new WoocommerceOrder.MetaDataArray());
 
         for (String key : new String[] { AttributeKey.bapId.getKey(), AttributeKey.bapUri.getKey(),
                 AttributeKey.domain.getKey(), AttributeKey.transactionId.getKey(), AttributeKey.city.getKey(),
                 AttributeKey.country.getKey(),
                 AttributeKey.coreVersion.getKey(), }) {
-            Tag meta = new Tag();
-            meta.setName(String.format("context.%s", key));
+            WoocommerceOrder.MetaData meta = new WoocommerceOrder.MetaData();
+            meta.setKey(String.format("context.%s", key));
             meta.setValue(request.getContext().get(key));
-
+            woocommerceOrder.getMetaDataArray().add(meta);
         }
 
         if (!ObjectUtil.isVoid(woocommerceOrder.getId())) {
@@ -145,9 +146,6 @@ public class ECommerceAdaptor extends SearchAdaptor {
         if (order == null) {
             throw new RuntimeException("No Order passed");
         }
-        String woocommerceOrderId = LocalOrderSynchronizerFactory.getInstance()
-                .getLocalOrderSynchronizer(getSubscriber()).getLocalOrderId(order);
-        WoocommerceOrder woocommerceOrder = getWoocommerceOrderDetails(woocommerceOrderId);
 
         if (Config.instance().isDevelopmentEnvironment()
                 && order.getPayment().getStatus() == Payment.PaymentStatus.PAID) {
@@ -157,7 +155,7 @@ public class ECommerceAdaptor extends SearchAdaptor {
     }
 
     @Override
-    public Order getStatus(Order order) {
+    public Order getStatus(@NotNull Order order) {
         return getBecknOrder(getWoocommerceOrderDetails(order.getId()));
     }
 
@@ -168,7 +166,7 @@ public class ECommerceAdaptor extends SearchAdaptor {
                 .getLocalOrderSynchronizer(getSubscriber()).getLocalOrderId(order);
 
         JSONObject params = new JSONObject();
-        params.put("status", "cancelled");
+        params.put(AttributeKey.status.getKey(), AttributeKey.cancelled.getKey());
         JSONObject outOrder = helper.putViaPost("/orders/" + woocommerceOrderId, params);
         return getBecknOrder(createWoocommerceOrder(outOrder));
     }
@@ -180,10 +178,30 @@ public class ECommerceAdaptor extends SearchAdaptor {
 
     @Override
     public List<FulfillmentStatusAdaptor.FulfillmentStatusAudit> getStatusAudit(Order order) {
-        return null;
+
+        String woocommerceOrderId = LocalOrderSynchronizerFactory.getInstance()
+                .getLocalOrderSynchronizer(getSubscriber()).getLocalOrderId(order);
+        WoocommerceOrder eCommerceOrder = getWoocommerceOrderDetails(woocommerceOrderId);
+        FulfillmentStatusAdaptor adaptor = getFulfillmentStatusAdaptor();
+        assert eCommerceOrder != null;
+        String transactionId = getBecknTransactionId(eCommerceOrder);
+
+        if (adaptor != null) {
+            List<FulfillmentStatusAdaptor.FulfillmentStatusAudit> audits = adaptor
+                    .getStatusAudit(String.valueOf(eCommerceOrder.getNumber()));
+            for (Iterator<FulfillmentStatusAdaptor.FulfillmentStatusAudit> i = audits.iterator(); i.hasNext();) {
+                FulfillmentStatusAdaptor.FulfillmentStatusAudit audit = i.next();
+                LocalOrderSynchronizerFactory.getInstance().getLocalOrderSynchronizer(getSubscriber())
+                        .setFulfillmentStatusReachedAt(transactionId, audit.getFulfillmentStatus(), audit.getDate(),
+                                !i.hasNext());
+            }
+        }
+        return LocalOrderSynchronizerFactory.getInstance().getLocalOrderSynchronizer(getSubscriber())
+                .getFulfillmentStatusAudit(transactionId);
+
     }
 
-    private static Date convertStringToDate(String dateString) {
+    private static @Nullable Date convertStringToDate(String dateString) {
         SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss");
         try {
             return dateFormat.parse(dateString);
@@ -664,6 +682,15 @@ public class ECommerceAdaptor extends SearchAdaptor {
             return null;
         }
 
+    }
+
+    private @Nullable String getBecknTransactionId(@NotNull WoocommerceOrder draftOrder) {
+        for (WoocommerceOrder.MetaData metaData : draftOrder.getMetaDataArray()) {
+            if (metaData.getKey().equals("context.transaction_id")) {
+                return metaData.getValue();
+            }
+        }
+        return null;
     }
 
 }

@@ -75,6 +75,9 @@ public enum AttributeKey {
     dateUpdatedGmt("date_updated_gmt"),
     datePaidGmt("date_paid_gmt"),
     dateCompletedGmt("date_completed_gmt"),
+    cancelled("cancelled"),
+    number("number"),
+    metaDataArray("meta_data"),
 
 ;
 

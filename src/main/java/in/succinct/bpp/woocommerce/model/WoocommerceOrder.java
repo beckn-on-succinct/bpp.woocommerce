@@ -31,6 +31,10 @@ public class WoocommerceOrder extends WooCommerceObjectWithId {
         return get(AttributeKey.status.getKey());
     }
 
+    public String getNumber() {
+        return get(AttributeKey.number.getKey());
+    }
+
     public Order.Status getBecknOrderStatus() {
         String status = getStatus();
 
@@ -121,6 +125,14 @@ public class WoocommerceOrder extends WooCommerceObjectWithId {
 
     public LineItems getLineItems() {
         return get(LineItems.class, AttributeKey.lineItems.getKey());
+    }
+
+    public void setMetaDataArray(MetaDataArray metaDataArray) {
+        set(AttributeKey.metaDataArray.getKey(), metaDataArray);
+    }
+
+    public MetaDataArray getMetaDataArray() {
+        return get(MetaDataArray.class, AttributeKey.metaDataArray.getKey());
     }
 
     public static class OrderBilling extends BecknObject {
@@ -331,12 +343,16 @@ public class WoocommerceOrder extends WooCommerceObjectWithId {
     }
 
     public static class MetaDataArray extends BecknObjectsWithId<MetaData> {
+        public MetaDataArray() {}
+
         public MetaDataArray(JSONArray object) {
             super(object);
         }
     }
 
     public static class MetaData extends WooCommerceObjectWithId {
+
+    public MetaData() {}
 
         public MetaData(JSONObject object) {
             super(object);
@@ -346,8 +362,16 @@ public class WoocommerceOrder extends WooCommerceObjectWithId {
             return get(AttributeKey.metaKey.getKey());
         }
 
+        public void setKey( String key) {
+            set(AttributeKey.metaKey.getKey(), key);
+        }
+
         public String getValue() {
             return get(AttributeKey.metaValue.getKey());
+        }
+
+        public void setValue(String value) {
+             set(AttributeKey.metaValue.getKey(), value);
         }
     }
 
