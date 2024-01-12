@@ -1,32 +1,72 @@
 package in.succinct.bpp.woocommerce.adaptor;
 
+import com.venky.core.string.StringUtil;
 import com.venky.core.util.ObjectUtil;
+import com.venky.geo.GeoCoordinate;
 import com.venky.swf.db.Database;
 import com.venky.swf.db.JdbcTypeHelper;
 import com.venky.swf.plugins.beckn.messaging.Subscriber;
 import com.venky.swf.plugins.collab.db.model.config.City;
 import com.venky.swf.plugins.collab.db.model.config.Country;
 import com.venky.swf.plugins.collab.db.model.config.State;
-import com.venky.swf.routing.Config;
-import in.succinct.beckn.*;
+import in.succinct.beckn.Address;
+import in.succinct.beckn.BecknStrings;
+import in.succinct.beckn.Billing;
+import in.succinct.beckn.BreakUp;
+import in.succinct.beckn.Contact;
+import in.succinct.beckn.Descriptor;
+import in.succinct.beckn.Fulfillment;
+import in.succinct.beckn.FulfillmentStop;
+import in.succinct.beckn.Images;
+import in.succinct.beckn.Item;
+import in.succinct.beckn.Items;
+import in.succinct.beckn.Location;
+import in.succinct.beckn.Locations;
+import in.succinct.beckn.Message;
+import in.succinct.beckn.Order;
+import in.succinct.beckn.Payment;
+import in.succinct.beckn.Person;
+import in.succinct.beckn.Price;
+import in.succinct.beckn.Provider;
+import in.succinct.beckn.Quantity;
+import in.succinct.beckn.Quote;
+import in.succinct.beckn.Request;
+import in.succinct.beckn.TagGroups;
+import in.succinct.beckn.User;
 import in.succinct.bpp.core.adaptor.TimeSensitiveCache;
 import in.succinct.bpp.core.adaptor.api.BecknIdHelper;
+import in.succinct.bpp.core.adaptor.api.BecknIdHelper.Entity;
 import in.succinct.bpp.core.adaptor.fulfillment.FulfillmentStatusAdaptor;
 import in.succinct.bpp.core.db.model.LocalOrderSynchronizerFactory;
 import in.succinct.bpp.core.db.model.ProviderConfig;
 import in.succinct.bpp.search.adaptor.SearchAdaptor;
-import in.succinct.bpp.core.adaptor.api.BecknIdHelper.Entity;
-import in.succinct.bpp.woocommerce.model.*;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
-import org.json.simple.JSONObject;
+import in.succinct.bpp.woocommerce.model.AttributeKey;
+import in.succinct.bpp.woocommerce.model.Continents;
+import in.succinct.bpp.woocommerce.model.Continents.Continent;
+import in.succinct.bpp.woocommerce.model.Countries;
+import in.succinct.bpp.woocommerce.model.GeneralSetting;
+import in.succinct.bpp.woocommerce.model.Products;
+import in.succinct.bpp.woocommerce.model.SettingAttribute;
+import in.succinct.bpp.woocommerce.model.SettingGroup;
+import in.succinct.bpp.woocommerce.model.Shop;
+import in.succinct.bpp.woocommerce.model.States;
+import in.succinct.bpp.woocommerce.model.TaxSetting;
+import in.succinct.bpp.woocommerce.model.Taxes;
+import in.succinct.bpp.woocommerce.model.Tuple;
+import in.succinct.bpp.woocommerce.model.WooCommerceOrder;
 import org.json.simple.JSONArray;
+import org.json.simple.JSONObject;
 
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.time.Duration;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Date;
+import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
+import java.util.Objects;
 
 public class ECommerceAdaptor extends SearchAdaptor {
 
@@ -63,8 +103,12 @@ public class ECommerceAdaptor extends SearchAdaptor {
             Products products = getInStockPublicProducts();
 
             products.forEach(product -> {
-                items.add(createItem(items, product));
-
+                Item item  =ECommerceAdaptor.this.createItem(product);
+                Location location =  getProviderLocations().get(0);
+                item.setLocationId(location.getId());
+                item.setLocationIds(new BecknStrings());
+                item.getLocationIds().add(location.getId());
+                items.add(item);
             });
 
             return items;
@@ -78,8 +122,8 @@ public class ECommerceAdaptor extends SearchAdaptor {
     }
 
     @Override
-    public Order initializeDraftOrder(@NotNull Request request) {
-        WoocommerceOrder woocommerceOrder = new WoocommerceOrder();
+    public void init( Request request,  Request reply) {
+        WooCommerceOrder woocommerceOrder = new WooCommerceOrder();
         Order becknOrder = request.getMessage().getOrder();
         fixFulfillment(request.getContext(), becknOrder);
         fixLocation(becknOrder);
@@ -97,13 +141,13 @@ public class ECommerceAdaptor extends SearchAdaptor {
         woocommerceOrder.setCurrency(AttributeKey.inr.getKey());
         woocommerceOrder.setSourceName(AttributeKey.beckn.getKey());
         woocommerceOrder.setName(AttributeKey.becknDash.getKey() + request.getContext().getTransactionId());
-        woocommerceOrder.setMetaDataArray(new WoocommerceOrder.MetaDataArray());
+        woocommerceOrder.setMetaDataArray(new WooCommerceOrder.MetaDataArray());
 
         for (String key : new String[] { AttributeKey.bapId.getKey(), AttributeKey.bapUri.getKey(),
                 AttributeKey.domain.getKey(), AttributeKey.transactionId.getKey(), AttributeKey.city.getKey(),
                 AttributeKey.country.getKey(),
                 AttributeKey.coreVersion.getKey(), }) {
-            WoocommerceOrder.MetaData meta = new WoocommerceOrder.MetaData();
+            WooCommerceOrder.MetaData meta = new WooCommerceOrder.MetaData();
             meta.setKey(String.format("context.%s", key));
             meta.setValue(request.getContext().get(key));
             woocommerceOrder.getMetaDataArray().add(meta);
@@ -113,7 +157,7 @@ public class ECommerceAdaptor extends SearchAdaptor {
             delete(woocommerceOrder);
         }
 
-        WoocommerceOrder.OrderShipping orderShipping = createWoocommerceShipping(fulfillment);
+        WooCommerceOrder.OrderShipping orderShipping = createWoocommerceShipping(fulfillment);
         if (orderShipping != null) {
             woocommerceOrder.setOrderShipping(orderShipping);
         }
@@ -126,19 +170,22 @@ public class ECommerceAdaptor extends SearchAdaptor {
         }
 
         Billing billing = becknOrder.getBilling();
-        WoocommerceOrder.OrderBilling orderBilling = createWoocommerceBilling(billing);
+        WooCommerceOrder.OrderBilling orderBilling = createWoocommerceBilling(billing);
         if (orderBilling != null) {
             woocommerceOrder.setOrderBilling(orderBilling);
         }
 
-        woocommerceOrder.setId(Long.parseLong(
-                BecknIdHelper.getLocalUniqueId(getProviderConfig().getLocation().getId(), Entity.provider_location)));
+        //woocommerceOrder.setId(BecknIdHelper.getLocalUniqueId(getProviderConfig().getLocation().getId(), Entity.provider_location));
 
         if (becknOrder.getItems() != null) {
             woocommerceOrder.setLineItems(createWoocommerceLineItems(becknOrder.getItems()));
         }
 
-        return getBecknOrder(createWoocommerceOrder(woocommerceOrder.getInner()));
+        Order order = getBecknOrder(createWoocommerceOrder(woocommerceOrder.getInner()));
+        if (reply.getMessage() == null){
+            reply.setMessage(new Message());
+        }
+        reply.getMessage().setOrder(order);
     }
 
     @Override
@@ -146,17 +193,24 @@ public class ECommerceAdaptor extends SearchAdaptor {
         if (order == null) {
             throw new RuntimeException("No Order passed");
         }
+        String wooCommerceOrderId = LocalOrderSynchronizerFactory.getInstance().getLocalOrderSynchronizer(getSubscriber()).getLocalOrderId(order);
+        WooCommerceOrder wooCommerceOrder = null;
+        JSONObject params = new JSONObject();
 
-        if (Config.instance().isDevelopmentEnvironment()
-                && order.getPayment().getStatus() == Payment.PaymentStatus.PAID) {
+        if (order.getPayment().getStatus() == Payment.PaymentStatus.PAID) {
+            params.put("set_paid", true );
+        }else {
+            params.put("status", "pending");
         }
+        wooCommerceOrder = helper.putViaPost("/orders/" + wooCommerceOrderId,params);
 
-        return null;
+
+        return getBecknOrder(wooCommerceOrder);
     }
 
     @Override
-    public Order getStatus(@NotNull Order order) {
-        return getBecknOrder(getWoocommerceOrderDetails(order.getId()));
+    public Order getStatus( Order order) {
+        return getBecknOrder(getWooCommerceOrder(order.getId()));
     }
 
     @Override
@@ -181,14 +235,14 @@ public class ECommerceAdaptor extends SearchAdaptor {
 
         String woocommerceOrderId = LocalOrderSynchronizerFactory.getInstance()
                 .getLocalOrderSynchronizer(getSubscriber()).getLocalOrderId(order);
-        WoocommerceOrder eCommerceOrder = getWoocommerceOrderDetails(woocommerceOrderId);
+        WooCommerceOrder eCommerceOrder = getWooCommerceOrder(woocommerceOrderId);
         FulfillmentStatusAdaptor adaptor = getFulfillmentStatusAdaptor();
         assert eCommerceOrder != null;
         String transactionId = getBecknTransactionId(eCommerceOrder);
 
         if (adaptor != null) {
             List<FulfillmentStatusAdaptor.FulfillmentStatusAudit> audits = adaptor
-                    .getStatusAudit(String.valueOf(eCommerceOrder.getNumber()));
+                    .getStatusAudit(StringUtil.valueOf(eCommerceOrder.getNumber()));
             for (Iterator<FulfillmentStatusAdaptor.FulfillmentStatusAudit> i = audits.iterator(); i.hasNext();) {
                 FulfillmentStatusAdaptor.FulfillmentStatusAudit audit = i.next();
                 LocalOrderSynchronizerFactory.getInstance().getLocalOrderSynchronizer(getSubscriber())
@@ -201,7 +255,7 @@ public class ECommerceAdaptor extends SearchAdaptor {
 
     }
 
-    private static @Nullable Date convertStringToDate(String dateString) {
+    private static  Date convertStringToDate(String dateString) {
         SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss");
         try {
             return dateFormat.parse(dateString);
@@ -245,11 +299,11 @@ public class ECommerceAdaptor extends SearchAdaptor {
     }
 
     @SuppressWarnings("unchecked")
-    private @NotNull ArrayList<Continents.Continent> getAllContinents() {
-        return cache.get(ArrayList.class, () -> {
-            ArrayList<Continents.Continent> continentsList = new ArrayList<>();
+    private Continents getAllContinents() {
+        return cache.get(Continents.class, () -> {
+            Continents continentsList = new Continents();
 
-            JSONArray continents = helper.get(new Continents().getApiEndpoint(), new JSONObject());
+            JSONArray continents = helper.get(Continents.getApiEndpoint(), new JSONObject());
             if (continents == null || continents.isEmpty())
                 return continentsList;
 
@@ -262,27 +316,22 @@ public class ECommerceAdaptor extends SearchAdaptor {
         });
     }
 
-    private @NotNull ArrayList<Countries> getAllCountries(@NotNull ArrayList<Continents.Continent> continents) {
-        return cache.get(ArrayList.class, () -> {
-            ArrayList<Countries> countriesList = new ArrayList<>();
+    private  Countries getAllCountries( Continents continents) {
+        return cache.get(Countries.class, () -> {
+            final Countries countries  = new Countries();
+
             continents.forEach(continent -> {
-                countriesList.add(continent.getCountries());
+                continent.getCountries().forEach(countries::add);
             });
-            return countriesList;
+            return countries;
         });
     }
 
-    private Countries.Country getCountry(@NotNull ArrayList<Countries> continentCountries, String code) {
-        return cache.get(Countries.Country.class, () -> {
-            return continentCountries.stream()
-                    .map(countries -> countries.getCountry(code)) // map each Country to the desired Country
-                    .filter(Objects::nonNull) // filter out any null results
-                    .findFirst() // get the first matching country
-                    .orElse(null); // return null if no match was found
-        });
+    private Countries.Country getCountry( Countries countries, String code) {
+            return countries.get(code);
     }
 
-    private @NotNull String generateQueryURL(@NotNull String endpoint, Map<String, String> queryParams) {
+    private  String generateQueryURL( String endpoint, Map<String, String> queryParams) {
         StringBuilder urlBuilder = new StringBuilder(endpoint);
         if (queryParams == null || queryParams.isEmpty()) {
             return urlBuilder.toString();
@@ -311,10 +360,10 @@ public class ECommerceAdaptor extends SearchAdaptor {
             Map<String, String> queryParams = new HashMap<>();
             queryParams.put(AttributeKey.status.getKey(), AttributeKey.publish.getKey());
             queryParams.put(AttributeKey.stockStatus.getKey(), AttributeKey.instock.getKey());
-            queryParams.put(AttributeKey.perPage.getKey(), String.valueOf(per_page));
+            queryParams.put(AttributeKey.perPage.getKey(), StringUtil.valueOf(per_page));
 
             while (true) {
-                queryParams.put(AttributeKey.page.getKey(), String.valueOf(page));
+                queryParams.put(AttributeKey.page.getKey(), StringUtil.valueOf(page));
                 String finalUrl = generateQueryURL(AttributeKey.products.getKey(), queryParams);
                 JSONArray response = helper.get(finalUrl, new JSONObject());
 
@@ -351,10 +400,13 @@ public class ECommerceAdaptor extends SearchAdaptor {
         });
     }
 
-    private @NotNull Item createItem(Items items, Products.@NotNull Product product) {
+    private  Item createItem(Products. Product product) {
         Item item = new Item();
+        product.getAttributes().forEach(a->{
+            item.setTag("general_attributes",a.getName(),a.getOptions().get(a.getPosition()));
+        });
 
-        item.setId(BecknIdHelper.getBecknId(String.valueOf(product.get(AttributeKey.id.getKey())),
+        item.setId(BecknIdHelper.getBecknId(StringUtil.valueOf(product.getId()),
                 this.getSubscriber(), Entity.item));
         item.setDescriptor(new Descriptor());
         Descriptor descriptor = item.getDescriptor();
@@ -377,9 +429,8 @@ public class ECommerceAdaptor extends SearchAdaptor {
         item.setCategoryId(getProviderConfig().getCategory().getId());
         item.setCategoryIds(new BecknStrings());
         item.getCategoryIds().add(item.getCategoryId());
-        item.setTags(new Tags());
         product.getTags().forEach(tag -> {
-            item.getTags().set(tag.getName(), "true");
+            item.setTag("general_attributes",tag.getName(),"true");
         });
 
         // Price
@@ -406,7 +457,7 @@ public class ECommerceAdaptor extends SearchAdaptor {
         }
 
         item.setCancellable(true);
-        item.setTimeToShip(getProviderConfig().getTurnAroundTime());
+        item.setTimeToShip(getProviderConfig().getTimeToShip());
         item.setAvailableOnCod(getProviderConfig().isCodSupported());
         item.setContactDetailsConsumerCare(getProviderConfig().getLocation().getAddress().flatten() + " "
                 + getProviderConfig().getSupportContact().flatten());
@@ -416,12 +467,17 @@ public class ECommerceAdaptor extends SearchAdaptor {
         for (Fulfillment fulfillment : getFulfillments()) {
             item.getFulfillmentIds().add(fulfillment.getId());
         }
+        item.setTaxRate(0);
+        item.setTax(new Price());
+        item.getTax().setValue(0.0);
+        item.getTax().setCurrency(getShop().getGeneralSetting().getAttribute(SettingAttribute.AttributeKey.CURRENCY).getValue());
+
 
         return item;
 
     }
 
-    private void delete(@NotNull WoocommerceOrder draftOrder) {
+    private void delete( WooCommerceOrder draftOrder) {
         Map<String, String> queryParams = new HashMap<>();
         queryParams.put(AttributeKey.force.getKey(), "true");
         helper.delete(
@@ -430,11 +486,11 @@ public class ECommerceAdaptor extends SearchAdaptor {
         draftOrder.rm(AttributeKey.id.getKey());
     }
 
-    private WoocommerceOrder.OrderShipping createWoocommerceShipping(Fulfillment source) {
+    private WooCommerceOrder.OrderShipping createWoocommerceShipping(Fulfillment source) {
         if (source == null) {
             return null;
         }
-        WoocommerceOrder.OrderShipping shipping = new WoocommerceOrder.OrderShipping();
+        WooCommerceOrder.OrderShipping shipping = new WooCommerceOrder.OrderShipping();
         User user = source.getCustomer();
         Address address = source.getEnd().getLocation().getAddress();
         Contact contact = source.getEnd().getContact();
@@ -468,12 +524,12 @@ public class ECommerceAdaptor extends SearchAdaptor {
         return shipping;
     }
 
-    private WoocommerceOrder.OrderBilling createWoocommerceBilling(Billing source) {
+    private WooCommerceOrder.OrderBilling createWoocommerceBilling(Billing source) {
         if (source == null) {
             return null;
         }
 
-        WoocommerceOrder.OrderBilling billing = new WoocommerceOrder.OrderBilling();
+        WooCommerceOrder.OrderBilling billing = new WooCommerceOrder.OrderBilling();
         String[] parts = source.getName().split(" ");
         billing.setFirstName(parts[0]);
         billing.setLastName(source.getName().substring(parts[0].length()));
@@ -497,18 +553,18 @@ public class ECommerceAdaptor extends SearchAdaptor {
 
     }
 
-    private WoocommerceOrder.@NotNull LineItems createWoocommerceLineItems(@NotNull Order.NonUniqueItems items) {
-        WoocommerceOrder.LineItems lineItems = new WoocommerceOrder.LineItems();
+    private WooCommerceOrder. LineItems createWoocommerceLineItems(Order.NonUniqueItems items) {
+        WooCommerceOrder.LineItems lineItems = new WooCommerceOrder.LineItems();
         items.forEach(item -> {
-            WoocommerceOrder.LineItem lineItem = new WoocommerceOrder.LineItem();
+            WooCommerceOrder.LineItem lineItem = new WooCommerceOrder.LineItem();
             lineItem.setProductId(BecknIdHelper.getLocalUniqueId(item.getId(), Entity.item));
             lineItem.setQuantity(item.getQuantity().getCount());
-            lineItems.add(item);
+            lineItems.add(lineItem);
         });
         return lineItems;
     }
 
-    private @NotNull Payment createBecknPayment(@NotNull WoocommerceOrder woocommerceOrder) {
+    private  Payment createBecknPayment( WooCommerceOrder woocommerceOrder) {
         Payment payment = new Payment();
         if (!woocommerceOrder.isOrderPaid()) {
             payment.setStatus(Payment.PaymentStatus.NOT_PAID);
@@ -523,18 +579,18 @@ public class ECommerceAdaptor extends SearchAdaptor {
         return payment;
     }
 
-    private @NotNull WoocommerceOrder createWoocommerceOrder(@NotNull JSONObject parameter) {
+    private WooCommerceOrder createWoocommerceOrder(JSONObject parameter) {
         JSONObject order = helper.post("/orders", parameter);
-        return new WoocommerceOrder(order);
+        return new WooCommerceOrder(order);
     }
 
-    private Order.@NotNull NonUniqueItems createBecknItems(WoocommerceOrder.@NotNull LineItems lineItems) {
+    private Order. NonUniqueItems createBecknItems(WooCommerceOrder. LineItems lineItems) {
         Order.NonUniqueItems items = new Order.NonUniqueItems();
 
         lineItems.forEach(lineItem -> {
             Item item = new Item();
             item.setDescriptor(new Descriptor());
-            item.setId(BecknIdHelper.getBecknId(String.valueOf(lineItem.get(AttributeKey.productId.getKey())),
+            item.setId(BecknIdHelper.getBecknId(StringUtil.valueOf(lineItem.get(AttributeKey.productId.getKey())),
                     this.getSubscriber(), Entity.item));
             item.getDescriptor().setName(lineItem.getName());
             item.getDescriptor().setCode(lineItem.getSku());
@@ -543,8 +599,9 @@ public class ECommerceAdaptor extends SearchAdaptor {
             }
             item.getDescriptor().setLongDesc(item.getDescriptor().getName());
             item.getDescriptor().setShortDesc(item.getDescriptor().getName());
-            item.setQuantity(new Quantity());
-            item.getQuantity().setCount(doubleTypeConverter.valueOf(lineItem.getQuantity()).intValue());
+            Quantity quantity = new Quantity();
+            quantity.setCount(doubleTypeConverter.valueOf(lineItem.getQuantity()).intValue());
+            item.setQuantity(quantity);
 
             Price price = new Price();
             item.setPrice(price);
@@ -558,38 +615,41 @@ public class ECommerceAdaptor extends SearchAdaptor {
         return items;
     }
 
-    private @NotNull Location providerLocation() {
+    private  Location providerLocation() {
         GeneralSetting generalSetting = getShop().getGeneralSetting();
 
-        ArrayList<Countries> continents = getAllCountries(getAllContinents());
+        Countries countries = getAllCountries(getAllContinents());
         Tuple<String, String> countryState = splitCountryState(
                 generalSetting.getAttribute(SettingAttribute.AttributeKey.COUNTRY).getValue());
-        Countries.Country country = getCountry(continents, countryState.first);
-        States.State state = country.getState().get(countryState.second);
+        Countries.Country country = getCountry(countries, countryState.first);
+        States.State state = country.getStates().get(countryState.second);
         String address1 = generalSetting.getAttribute(SettingAttribute.AttributeKey.ADDRESS_1).getValue();
         String address2 = generalSetting.getAttribute(SettingAttribute.AttributeKey.ADDRESS_2).getValue();
         String city = generalSetting.getAttribute(SettingAttribute.AttributeKey.CITY).getValue();
         String pincode = generalSetting.getAttribute(SettingAttribute.AttributeKey.CITY).getValue();
 
         Address address = new Address();
+        address.setName(getProviderConfig().getStoreName());
         address.setStreet(address1);
-        address.setLocality(address2);
         address.setCity(city);
         address.setPinCode(pincode);
-        address.setCountry(country.getAttribute(AttributeKey.name));
+        address.setCountry(country.getAttribute(AttributeKey.code));
         address.setState(state.getName());
 
         Location location = new Location();
         location.setId(BecknIdHelper.getBecknId(this.getSubscriber().getSubscriberId(),
                 this.getSubscriber(), Entity.provider_location));
+
         location.setAddress(address);
+        String[] latLng = address2.split(",");
+        location.setGps(new GeoCoordinate(Double.parseDouble(latLng[0]),Double.parseDouble(latLng[1])));
         location.setTime(getProviderConfig().getTime());
         location.setDescriptor(new Descriptor());
         location.getDescriptor().setName(location.getAddress().getName());
         return location;
     }
 
-    private @NotNull Order getBecknOrder(WoocommerceOrder woocommerceOrder) {
+    private  Order getBecknOrder(WooCommerceOrder woocommerceOrder) {
         Order order = new Order();
         order.setPayment(createBecknPayment(woocommerceOrder));
         Quote quote = new Quote();
@@ -605,7 +665,7 @@ public class ECommerceAdaptor extends SearchAdaptor {
 
         // Delivery breakup to be filled.
         order.setBilling(woocommerceOrder.getOrderBilling().toBeckn());
-        order.setId(BecknIdHelper.getBecknId(String.valueOf(woocommerceOrder.get(AttributeKey.id.getKey())),
+        order.setId(BecknIdHelper.getBecknId(StringUtil.valueOf(woocommerceOrder.get(AttributeKey.id.getKey())),
                 this.getSubscriber(), Entity.order));
         order.setState(woocommerceOrder.getBecknOrderStatus());
         order.setItems(createBecknItems(woocommerceOrder.getLineItems()));
@@ -616,7 +676,7 @@ public class ECommerceAdaptor extends SearchAdaptor {
         order.getFulfillment().getEnd().getLocation().setAddress(new Address());
         order.getFulfillment().getEnd().setContact(new Contact());
         order.getFulfillment().setCustomer(new User());
-        order.getFulfillment().setId(BecknIdHelper.getBecknId(String.valueOf(woocommerceOrder.getId()),
+        order.getFulfillment().setId(BecknIdHelper.getBecknId(StringUtil.valueOf(woocommerceOrder.getId()),
                 this.getSubscriber(), Entity.fulfillment));
 
         Locations locations = new Locations();
@@ -627,8 +687,8 @@ public class ECommerceAdaptor extends SearchAdaptor {
             order.getFulfillment().getStart().setLocation(locations.get(0));
         }
 
-        WoocommerceOrder.OrderShipping shipping = woocommerceOrder.getOrderShipping();
-        WoocommerceOrder.OrderBilling billing = woocommerceOrder.getOrderBilling();
+        WooCommerceOrder.OrderShipping shipping = woocommerceOrder.getOrderShipping();
+        WooCommerceOrder.OrderBilling billing = woocommerceOrder.getOrderBilling();
         String[] address1_parts = shipping.getAddress1().split(",");
         String[] address2_parts = shipping.getAddress2().split(",");
         User user = order.getFulfillment().getCustomer();
@@ -668,24 +728,24 @@ public class ECommerceAdaptor extends SearchAdaptor {
         order.getProvider().setId(getSubscriber().getAppId());
         order.setProviderLocation(locations.get(0));
 
-        order.setCreatedAt(convertStringToDate(woocommerceOrder.getCreateDateGmt()));
-        order.setUpdatedAt(convertStringToDate(woocommerceOrder.getUpdatedDateGmt()));
+        order.setCreatedAt(woocommerceOrder.getCreateDateGmt());
+        order.setUpdatedAt(woocommerceOrder.getUpdatedDateGmt());
 
         return order;
     }
 
-    private @Nullable WoocommerceOrder getWoocommerceOrderDetails(@NotNull String orderId) {
+    private WooCommerceOrder getWooCommerceOrder(String orderId) {
         try {
             JSONObject orderDetails = helper.get("/orders/" + orderId, new JSONObject());
-            return new WoocommerceOrder(orderDetails);
+            return new WooCommerceOrder(orderDetails);
         } catch (Exception e) {
             return null;
         }
 
     }
 
-    private @Nullable String getBecknTransactionId(@NotNull WoocommerceOrder draftOrder) {
-        for (WoocommerceOrder.MetaData metaData : draftOrder.getMetaDataArray()) {
+    private  String getBecknTransactionId( WooCommerceOrder draftOrder) {
+        for (WooCommerceOrder.MetaData metaData : draftOrder.getMetaDataArray()) {
             if (metaData.getKey().equals("context.transaction_id")) {
                 return metaData.getValue();
             }

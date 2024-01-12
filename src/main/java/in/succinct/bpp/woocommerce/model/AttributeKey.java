@@ -10,6 +10,7 @@ public enum AttributeKey {
     weightUnit("weight_unit"),
     dimensionUnit("dimension_unit"),
     state("state"),
+    states("states"),
     images("images"),
     attributes("attributes"),
     defaultAttributes("default_attributes"),

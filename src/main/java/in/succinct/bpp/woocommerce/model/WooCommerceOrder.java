@@ -7,13 +7,15 @@ import in.succinct.beckn.*;
 import org.json.simple.JSONArray;
 import org.json.simple.JSONObject;
 
-public class WoocommerceOrder extends WooCommerceObjectWithId {
+import java.util.Date;
 
-    public WoocommerceOrder() {
+public class WooCommerceOrder extends WooCommerceObjectWithId {
+
+    public WooCommerceOrder() {
 
     }
 
-    public WoocommerceOrder(JSONObject object) {
+    public WooCommerceOrder(JSONObject object) {
 
         super(object);
     }
@@ -59,12 +61,12 @@ public class WoocommerceOrder extends WooCommerceObjectWithId {
         return get(AttributeKey.datePaidGmt.getKey());
     }
 
-    public String getCreateDateGmt() {
-        return get(AttributeKey.dateCreatedGmt.getKey());
+    public Date getCreateDateGmt() {
+        return getTimestamp(AttributeKey.dateCreatedGmt.getKey());
     }
 
-    public String getUpdatedDateGmt() {
-        return get(AttributeKey.dateUpdatedGmt.getKey());
+    public Date getUpdatedDateGmt() {
+        return getTimestamp(AttributeKey.dateUpdatedGmt.getKey());
     }
 
     public void setCurrency(String currency) {
@@ -342,7 +344,7 @@ public class WoocommerceOrder extends WooCommerceObjectWithId {
 
     }
 
-    public static class MetaDataArray extends BecknObjectsWithId<MetaData> {
+    public static class MetaDataArray extends BecknObjects<MetaData> {
         public MetaDataArray() {}
 
         public MetaDataArray(JSONArray object) {
@@ -350,7 +352,7 @@ public class WoocommerceOrder extends WooCommerceObjectWithId {
         }
     }
 
-    public static class MetaData extends WooCommerceObjectWithId {
+    public static class MetaData extends BecknObject {
 
     public MetaData() {}
 
@@ -375,7 +377,7 @@ public class WoocommerceOrder extends WooCommerceObjectWithId {
         }
     }
 
-    public static class LineItems extends BecknObjectsWithId<LineItem> {
+    public static class LineItems extends BecknObjects<LineItem> {
         public LineItems() {
         }
 
@@ -385,7 +387,7 @@ public class WoocommerceOrder extends WooCommerceObjectWithId {
 
     }
 
-    public static class LineItem extends WooCommerceObjectWithId {
+    public static class LineItem extends BecknObject {
 
         public LineItem() {
 
@@ -400,7 +402,7 @@ public class WoocommerceOrder extends WooCommerceObjectWithId {
         }
 
         public int getQuantity() {
-            return get(AttributeKey.quantity.getKey());
+            return getInteger(AttributeKey.quantity.getKey());
         }
 
         public void setProductId(String productId) {
@@ -429,14 +431,14 @@ public class WoocommerceOrder extends WooCommerceObjectWithId {
 
     }
 
-    public static class TaxLines extends BecknObjectsWithId<TaxLine> {
+    public static class TaxLines extends BecknObjects<TaxLine> {
 
         public TaxLines(JSONArray object) {
             super(object);
         }
     }
 
-    public static class TaxLine extends WooCommerceObjectWithId {
+    public static class TaxLine extends BecknObject {
 
         public TaxLine(JSONObject object) {
             super(object);
@@ -444,7 +446,9 @@ public class WoocommerceOrder extends WooCommerceObjectWithId {
 
     }
 
-    public static class ShippingLines extends BecknObjectsWithId<ShippingLine> {
+    public static class ShippingLines extends BecknObjects<ShippingLine> {
+        public ShippingLines() {
+        }
 
         public ShippingLines(JSONArray object) {
             super(object);
@@ -452,7 +456,9 @@ public class WoocommerceOrder extends WooCommerceObjectWithId {
 
     }
 
-    public static class ShippingLine extends WooCommerceObjectWithId {
+    public static class ShippingLine extends BecknObject {
+        public ShippingLine() {
+        }
 
         public ShippingLine(JSONObject object) {
             super(object);

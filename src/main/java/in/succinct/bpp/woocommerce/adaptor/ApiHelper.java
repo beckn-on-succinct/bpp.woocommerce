@@ -7,6 +7,7 @@ import com.venky.swf.db.model.application.Application;
 import com.venky.swf.db.model.application.ApplicationUtil;
 import com.venky.swf.integration.api.Call;
 import com.venky.swf.integration.api.HttpMethod;
+import com.venky.swf.integration.api.InputFormat;
 import org.jetbrains.annotations.NotNull;
 import org.jose4j.base64url.Base64;
 import org.json.simple.JSONAware;
@@ -112,10 +113,9 @@ public class ApiHelper {
 
         switch (reqMethod) {
             case GET:
-                return call.method(HttpMethod.GET).getResponseAsJson();
+                return call.method(HttpMethod.GET);
             case POST:
-                return call.method(HttpMethod.POST).getResponseAsJson();
-            // Handle other HTTP methods as needed.
+                return call.method(HttpMethod.POST);
             default:
                 throw new IllegalArgumentException("Unsupported HTTP method");
         }
@@ -126,13 +126,14 @@ public class ApiHelper {
      * Determine if a retry is required based on call status and retry count.
      */
     private boolean shouldRetry(@NotNull Call<JSONObject> call, Bucket tries) {
-        return call.getStatus() > 200 && call.getStatus() < 299 && tries.intValue() > 0;
+        return ( call.getStatus() < 200 || call.getStatus() > 299 )&& tries.intValue() > 0;
     }
 
     /**
      * Handles the retry logic for the request.
      */
     private Call<JSONObject> handleRetry(@NotNull Call<JSONObject> call, Bucket tries) {
+        tries.decrement();
         List<String> locations = call.getResponseHeaders().get("location");
 
         // Exit if no locations are found.
@@ -154,7 +155,6 @@ public class ApiHelper {
         } catch (Exception ex) {
             // Handle exception if needed.
         }
-        tries.decrement();
 
         return call; // return the new retry call
     }
@@ -179,6 +179,8 @@ public class ApiHelper {
     public <T extends JSONAware> T post(String relativeUrl, JSONObject parameter, Map<String, String> addonHeaders) {
         // Initialize the call with the provided parameters.
         Call<JSONObject> initialCall = initializeCall(relativeUrl, parameter, addonHeaders, HttpMethod.POST);
+        initialCall.inputFormat(InputFormat.JSON);
+
         T responseObject = initialCall.getResponseAsJson();
 
         // Create a bucket for retry attempts.

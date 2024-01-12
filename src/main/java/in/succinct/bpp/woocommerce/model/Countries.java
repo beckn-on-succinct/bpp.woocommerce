@@ -7,6 +7,9 @@ import org.json.simple.JSONObject;
 
 public class Countries extends BecknObjectsWithId<Countries.Country> {
 
+    public Countries() {
+    }
+
     public Countries(JSONArray array) {
         super(array);
     }
@@ -17,17 +20,24 @@ public class Countries extends BecknObjectsWithId<Countries.Country> {
             super(object);
         }
 
+        public Country() {
+        }
+
+        public String getId(){
+            return get("code");
+        }
+        public void setId(String id){
+            set("code",id);
+        }
+
         public String getAttribute(AttributeKey attribute){
             return get(attribute.getKey());
         }
 
-        public States getState() {
-            return get(States.class, AttributeKey.state.getKey());
+        public States getStates() {
+            return get(States.class, AttributeKey.states.getKey());
         }
     }
 
-    public Country getCountry(String code){
-        return get(Country.class, code);
-    }
 
 }

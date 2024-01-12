@@ -16,7 +16,7 @@ public class SettingAttribute extends WooCommerceObjectWithId {
         ADDRESS_1("woocommerce_store_address", SettingGroup.GENERAL),
         ADDRESS_2("woocommerce_store_address_2", SettingGroup.GENERAL),
         CITY("woocommerce_store_city", SettingGroup.GENERAL),
-        COUNTRY("woocommerce_store_country", SettingGroup.GENERAL),
+        COUNTRY("woocommerce_default_country", SettingGroup.GENERAL),
         CONTINENTS("continents", SettingGroup.DATA),
         PRICES_INCLUDES_TAX("woocommerce_prices_include_tax", SettingGroup.TAX),
         CURRENCY("woocommerce_currency", SettingGroup.GENERAL),
@@ -35,6 +35,10 @@ public class SettingAttribute extends WooCommerceObjectWithId {
             return key;
         }
 
+        public SettingGroup getGroup() {
+            return group;
+        }
+
         public static List<AttributeKey> getSettingGroupAttributes(SettingGroup group) {
             return Arrays.stream(values())
                     .filter(e -> e.group == group)
@@ -43,14 +47,14 @@ public class SettingAttribute extends WooCommerceObjectWithId {
     }
 
     public SettingAttribute(@NotNull AttributeKey apiResourceId) {
-        this.group = SettingGroup.GENERAL;
+        this.group = apiResourceId.getGroup();
         this.apiResourceId = apiResourceId;
     }
 
 
     public SettingAttribute(JSONObject object, @NotNull AttributeKey apiResourceId) {
         super(object);
-        this.group = SettingGroup.GENERAL;
+        this.group = apiResourceId.getGroup();
         this.apiResourceId = apiResourceId;
     }
 

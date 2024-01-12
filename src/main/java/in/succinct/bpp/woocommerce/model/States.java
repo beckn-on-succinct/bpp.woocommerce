@@ -12,16 +12,25 @@ public  class States extends BecknObjectsWithId<State> {
         super(array);
     }
 
+    public States() {
+    }
+
     public static class State extends WooCommerceObjectWithId{
 
         public State(JSONObject object) {
             super(object);
         }
 
+        public State() {
+        }
+
         public String getCode(){
             return get(AttributeKey.code.getKey());
         }
 
+        public String getId(){
+            return getCode();
+        }
 
         public String getName(){
             return get(AttributeKey.name.getKey());
@@ -30,7 +39,7 @@ public  class States extends BecknObjectsWithId<State> {
     }
 
     public State getState(String code){
-        return get(State.class, code);
+        return get(code);
     }
 
 }

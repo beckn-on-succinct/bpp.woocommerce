@@ -1,5 +1,6 @@
 package in.succinct.bpp.woocommerce.model;
 
+import com.venky.core.string.StringUtil;
 import in.succinct.beckn.BecknObjectWithId;
 import org.json.simple.JSONObject;
 
@@ -38,6 +39,6 @@ public class WooCommerceObjectWithId extends BecknObjectWithId {
      */
     @Override
     public String getId() {
-        return super.getId();
+        return StringUtil.valueOf(get("id"));
     }
 }

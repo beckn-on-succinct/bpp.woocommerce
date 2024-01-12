@@ -15,8 +15,8 @@ public class Continents extends BecknObjectsWithId<Continents.Continent> {
         super(array);
     }
 
-    public String getApiEndpoint() {
-        return String.format("/settings/%s/%s", SettingGroup.DATA.getKey(), SettingAttribute.AttributeKey.CONTINENTS.getKey());
+    public static String getApiEndpoint() {
+        return String.format("/%s/%s", SettingGroup.DATA.getKey(), SettingAttribute.AttributeKey.CONTINENTS.getKey());
     }
 
 
@@ -25,6 +25,9 @@ public class Continents extends BecknObjectsWithId<Continents.Continent> {
             super(object);
         }
 
+        public Continent(){
+
+        }
         public Countries getCountries() {
             return get(Countries.class, AttributeKey.countries.getKey());
         }

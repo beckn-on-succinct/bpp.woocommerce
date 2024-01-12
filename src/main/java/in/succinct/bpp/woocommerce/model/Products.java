@@ -1,5 +1,6 @@
 package in.succinct.bpp.woocommerce.model;
 
+import com.venky.core.string.StringUtil;
 import in.succinct.beckn.BecknObject;
 import in.succinct.beckn.BecknObjectsWithId;
 import in.succinct.beckn.BecknStrings;
@@ -12,7 +13,12 @@ public class Products extends BecknObjectsWithId<Products.Product> {
         super(array);
     }
 
+    public Products() {
+    }
+
     public static class Product extends WooCommerceObjectWithId {
+        public Product() {
+        }
 
         public Product(JSONObject object) {
             super(object);
@@ -36,6 +42,10 @@ public class Products extends BecknObjectsWithId<Products.Product> {
 
         public boolean isPurchasable() {
             return getBoolean(AttributeKey.purchasable.getKey());
+        }
+
+        public String getId(){
+            return StringUtil.valueOf(get("id"));
         }
 
         public double getRegularPrice() {
@@ -118,6 +128,9 @@ public class Products extends BecknObjectsWithId<Products.Product> {
             super(object);
         }
 
+        public ProductDimension() {
+        }
+
         public String getLength() {
             return get(AttributeKey.length.getKey());
         }
@@ -134,6 +147,8 @@ public class Products extends BecknObjectsWithId<Products.Product> {
     }
 
     public static class ProductCategories extends BecknObjectsWithId<ProductCategory> {
+        public ProductCategories() {
+        }
 
         public ProductCategories(JSONArray array) {
             super(array);
@@ -145,12 +160,18 @@ public class Products extends BecknObjectsWithId<Products.Product> {
             super(object);
         }
 
+        public ProductCategory() {
+        }
+
         public String getName() {
             return get(AttributeKey.name.getKey());
         }
     }
 
     public static class ProductTags extends BecknObjectsWithId<ProductTag> {
+        public ProductTags() {
+        }
+
         public ProductTags(JSONArray array) {
             super(array);
         }
@@ -161,12 +182,17 @@ public class Products extends BecknObjectsWithId<Products.Product> {
             super(object);
         }
 
+        public ProductTag() {
+        }
+
         public String getName() {
             return get(AttributeKey.name.getKey());
         }
     }
 
     public static class ProductImages extends BecknObjectsWithId<ProductImage> {
+        public ProductImages() {
+        }
 
         public ProductImages(JSONArray array) {
             super(array);
@@ -175,6 +201,8 @@ public class Products extends BecknObjectsWithId<Products.Product> {
     }
 
     public static class ProductImage extends WooCommerceObjectWithId {
+        public ProductImage() {
+        }
 
         public ProductImage(JSONObject object) {
             super(object);
@@ -192,9 +220,13 @@ public class Products extends BecknObjectsWithId<Products.Product> {
             super(array);
         }
 
+        public ProductAttributes() {
+        }
     }
 
     public static class ProductAttribute extends WooCommerceObjectWithId {
+        public ProductAttribute() {
+        }
 
         public ProductAttribute(JSONObject object) {
             super(object);
