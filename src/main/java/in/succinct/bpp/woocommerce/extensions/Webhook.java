@@ -12,7 +12,7 @@ import in.succinct.beckn.Order;
 import in.succinct.beckn.Request;
 import in.succinct.bpp.core.adaptor.CommerceAdaptor;
 
-import in.succinct.bpp.core.adaptor.NetworkApiAdaptor;
+import in.succinct.bpp.core.adaptor.api.NetworkApiAdaptor;
 import in.succinct.bpp.woocommerce.adaptor.ECommerceAdaptor;
 import in.succinct.onet.core.adaptor.NetworkAdaptor;
 
