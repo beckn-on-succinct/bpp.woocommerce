@@ -4,6 +4,7 @@ import com.venky.swf.plugins.collab.db.model.config.City;
 import com.venky.swf.plugins.collab.db.model.config.Country;
 import com.venky.swf.plugins.collab.db.model.config.State;
 import in.succinct.beckn.*;
+import in.succinct.beckn.Order.Status;
 import org.json.simple.JSONArray;
 import org.json.simple.JSONObject;
 
@@ -14,6 +15,34 @@ public class WooCommerceOrder extends WooCommerceObjectWithId {
     public WooCommerceOrder() {
 
     }
+    public ShippingLines getShippingLines(){
+        return get(ShippingLines.class, "shipping_lines");
+    }
+    public void setShippingLines(ShippingLines shipping_lines){
+        set("shipping_lines",shipping_lines);
+    }
+    
+    public CouponLines getCouponLines(){
+        return get(CouponLines.class, "coupon_lines");
+    }
+    public void setCouponLines(CouponLines coupon_lines){
+        set("coupon_lines",coupon_lines);
+    }
+    
+    public FeeLines getFeeLines(){
+        return get(FeeLines.class, "fee_lines");
+    }
+    public void setFeeLines(FeeLines fee_lines){
+        set("fee_lines",fee_lines);
+    }
+
+    public TaxLines getTaxLines(){
+        return get(TaxLines.class, "tax_lines");
+    }
+    public void setTaxLines(TaxLines tax_lines){
+        set("tax_lines",tax_lines);
+    }
+
 
     public WooCommerceOrder(JSONObject object) {
 
@@ -25,8 +54,30 @@ public class WooCommerceOrder extends WooCommerceObjectWithId {
         return dateOfPayment != null && !dateOfPayment.isEmpty();
     }
 
-    public String getTotal() {
-        return get(AttributeKey.total.getKey());
+
+    public String getCurrency(){
+        return get("currency");
+    }
+
+    public double getTotal() {
+        return getDouble(AttributeKey.total.getKey());
+    }
+
+    public double getDiscountTotal(){
+        return getDouble("discount_total");
+    }
+    public void setDiscountTotal(double discount_total){
+        set("discount_total",discount_total);
+    }
+
+    public double getDiscountTax(){
+        return getDouble("discount_tax");
+    }
+    public double getShippingTotal(){
+        return getDouble("shipping_total");
+    }
+    public double getShippingTax(){
+        return getDouble("shipping_tax");
     }
 
     public String getStatus() {
@@ -47,13 +98,13 @@ public class WooCommerceOrder extends WooCommerceObjectWithId {
                 return Order.Status.Cancelled;
             case "pending":
                 // Handle pending status if needed
-                return Order.Status.Awaiting_Agent_Acceptance;
+                return Status.Created;
             case "processing":
                 return Order.Status.In_progress;
             // Add more cases for other WooCommerce statuses if necessary
             default:
                 // Handle any other statuses or provide a default mapping
-                return Order.Status.Created;
+                return Status.Accepted;
         }
     }
 
@@ -413,12 +464,12 @@ public class WooCommerceOrder extends WooCommerceObjectWithId {
             return get(AttributeKey.productId.getKey());
         }
 
-        public String getSubtotal() {
-            return get(AttributeKey.subTotal.getKey());
+        public Double getSubtotal() {
+            return getDouble(AttributeKey.subTotal.getKey());
         }
 
-        public String getTotal() {
-            return get(AttributeKey.total.getKey());
+        public Double getTotal() {
+            return getDouble(AttributeKey.total.getKey());
         }
 
         public String getName() {
@@ -464,6 +515,26 @@ public class WooCommerceOrder extends WooCommerceObjectWithId {
             super(object);
         }
 
+        public String getMethodTitle(){
+            return get("method_title");
+        }
+        public void setMethodTitle(String method_title){
+            set("method_title",method_title);
+        }
+        public String getMethodId(){
+            return get("method_id");
+        }
+        public void setMethodId(String method_id){
+            set("method_id",method_id);
+        }
+        public Double getTotal(){
+            return getDouble("total");
+        }
+        public void setTotal(Double total){
+            set("total",total);
+        }
+
+
     }
 
     public static class FeeLines extends BecknObjectsWithId<FeeLine> {
@@ -478,6 +549,14 @@ public class WooCommerceOrder extends WooCommerceObjectWithId {
 
         public FeeLine(JSONObject object) {
             super(object);
+        }
+
+
+        public double getTotal(){
+            return getDouble("total");
+        }
+        public void setTotal(double total){
+            set("total",total);
         }
 
     }

@@ -62,8 +62,15 @@ public class SettingAttribute extends WooCommerceObjectWithId {
         return group;
     }
 
+    /*
     public String getApiEndpoint() {
         return String.format("/settings/%s/%s",group.getKey(), apiResourceId.getKey());
+    }
+
+     */
+
+    public String getGroupApiEndPoint(){
+        return String.format("/settings/%s",group.getKey());
     }
 
     public String getValue() {
