@@ -597,6 +597,10 @@ public class ECommerceAdaptor extends SearchAdaptor {
         payment.getParams().setCurrency(
                 getShop().getGeneralSetting().getAttribute(SettingAttribute.AttributeKey.CURRENCY).getValue());
         payment.getParams().setAmount(woocommerceOrder.getTotal());
+        if (!woocommerceOrder.isOrderPaid()){
+            payment.setUri("https://google.com/search?q=payment%20With%20Stripe%20Yet%20to%20be%20implemented");
+            payment.setTlMethod("http/get");
+        }
         return payment;
     }
 
