@@ -4,6 +4,7 @@ import com.venky.swf.plugins.collab.db.model.config.City;
 import com.venky.swf.plugins.collab.db.model.config.Country;
 import com.venky.swf.plugins.collab.db.model.config.State;
 import in.succinct.beckn.*;
+import in.succinct.beckn.Fulfillment.FulfillmentStatus;
 import in.succinct.beckn.Order.Status;
 import org.json.simple.JSONArray;
 import org.json.simple.JSONObject;
@@ -102,6 +103,8 @@ public class WooCommerceOrder extends WooCommerceObjectWithId {
             case "processing":
                 return Order.Status.In_progress;
             // Add more cases for other WooCommerce statuses if necessary
+            case "out-for-delivery" :
+                return Status.Out_for_delivery;
             default:
                 // Handle any other statuses or provide a default mapping
                 return Status.Accepted;
@@ -186,6 +189,39 @@ public class WooCommerceOrder extends WooCommerceObjectWithId {
 
     public MetaDataArray getMetaDataArray() {
         return get(MetaDataArray.class, AttributeKey.metaDataArray.getKey());
+    }
+
+    public FulfillmentStatus getFulfillmentStatus() {
+        String status = getStatus();
+        switch (status) {
+            case "draft":
+                return FulfillmentStatus.Serviceable;
+            case "packed":
+                return  FulfillmentStatus.Packed;
+            case "picked-up":
+                return FulfillmentStatus.Order_picked_up;
+            case "out-for-delivery":
+                return FulfillmentStatus.Out_for_delivery;
+            case "completed":
+                return FulfillmentStatus.Order_delivered;
+            case "cancelled":
+                return FulfillmentStatus.Cancelled;
+            case "return-initiated":
+                return FulfillmentStatus.Return_Initiated;
+            case "return-approved":
+                return FulfillmentStatus.Return_Approved;
+            case "return-rejected":
+                return FulfillmentStatus.Return_Rejected;
+            case "return-liquidated":
+                return FulfillmentStatus.Return_Liquidated;
+            case "return-delivered":
+                return FulfillmentStatus.Return_Delivered;
+            // Add more cases for other WooCommerce statuses if necessary
+            default:
+                // Handle any other statuses or provide a default mapping
+                return FulfillmentStatus.Pending;
+        }
+
     }
 
     public static class OrderBilling extends BecknObject {

@@ -11,6 +11,7 @@ import com.venky.swf.plugins.beckn.messaging.Subscriber;
 import com.venky.swf.plugins.collab.db.model.config.City;
 import com.venky.swf.plugins.collab.db.model.config.Country;
 import com.venky.swf.plugins.collab.db.model.config.State;
+import com.venky.swf.routing.Config;
 import in.succinct.beckn.Address;
 import in.succinct.beckn.BecknStrings;
 import in.succinct.beckn.Billing;
@@ -192,6 +193,7 @@ public class ECommerceAdaptor extends SearchAdaptor {
         shippingLine.setMethodId("flat_rate");
         woocommerceOrder.getShippingLines().add(shippingLine);
 
+        LocalOrderSynchronizerFactory.getInstance().getLocalOrderSynchronizer(getSubscriber()).sync(request.getContext().getTransactionId(), becknOrder);
         Order order = getBecknOrder(createWoocommerceOrder(woocommerceOrder.getInner()));
 
         if (reply.getMessage() == null){
@@ -221,7 +223,10 @@ public class ECommerceAdaptor extends SearchAdaptor {
 
     @Override
     public Order getStatus( Order order) {
-        return getBecknOrder(getWooCommerceOrder(order.getId()));
+        String woocommerceOrderId = LocalOrderSynchronizerFactory.getInstance()
+                .getLocalOrderSynchronizer(getSubscriber()).getLocalOrderId(order);
+
+        return getBecknOrder(getWooCommerceOrder(woocommerceOrderId));
     }
 
     @Override
@@ -598,7 +603,7 @@ public class ECommerceAdaptor extends SearchAdaptor {
                 getShop().getGeneralSetting().getAttribute(SettingAttribute.AttributeKey.CURRENCY).getValue());
         payment.getParams().setAmount(woocommerceOrder.getTotal());
         if (!woocommerceOrder.isOrderPaid()){
-            payment.setUri("https://google.com/search?q=payment%20With%20Stripe%20Yet%20to%20be%20implemented");
+            payment.setUri(Config.instance().getServerBaseUrl()+"/payment.html");
             payment.setTlMethod("http/get");
         }
         return payment;
@@ -736,6 +741,7 @@ public class ECommerceAdaptor extends SearchAdaptor {
         order.getFulfillment().setId(BecknIdHelper.getBecknId(StringUtil.valueOf(woocommerceOrder.getId()),
                 this.getSubscriber(), Entity.fulfillment));
 
+        order.getFulfillment().setFulfillmentStatus(woocommerceOrder.getFulfillmentStatus());
         Locations locations = new Locations();
         locations.add(providerLocation());
 
@@ -860,6 +866,7 @@ public class ECommerceAdaptor extends SearchAdaptor {
     }
     private WooCommerceOrder getWooCommerceOrder(String orderId) {
         try {
+
             JSONObject orderDetails = helper.get("/orders/" + orderId, new JSONObject());
             return new WooCommerceOrder(orderDetails);
         } catch (Exception e) {
