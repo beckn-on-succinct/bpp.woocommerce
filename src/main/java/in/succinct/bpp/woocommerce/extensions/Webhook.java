@@ -6,6 +6,7 @@ import com.venky.core.util.ObjectUtil;
 import com.venky.extension.Extension;
 import com.venky.extension.Registry;
 import com.venky.swf.path.Path;
+import com.venky.swf.routing.Config;
 import in.succinct.beckn.Context;
 import in.succinct.beckn.Message;
 import in.succinct.beckn.Order;
@@ -24,7 +25,7 @@ import java.util.UUID;
 
 public class Webhook implements Extension {
     static {
-        Registry.instance().registerExtension("in.succinct.bpp.shell.hook",new Webhook());
+        Registry.instance().registerExtension("in.succinct.bpp.shell.order_hook",new Webhook());
     }
     @Override
     public void invoke(Object... objects) {
@@ -43,8 +44,16 @@ public class Webhook implements Extension {
     }
     public void hook(ECommerceAdaptor eCommerceAdaptor, NetworkAdaptor networkAdaptor,Path path) throws Exception{
         String payload = StringUtil.read(path.getInputStream());
+        if (Config.instance().isDevelopmentEnvironment()) {
+            StringBuilder fakeCurlHeader = new StringBuilder();
+            path.getHeaders().forEach((k,v)->{
+                fakeCurlHeader.append(String.format(" -H \"%s:%s\"",k,v));
+            });
+            Config.instance().getLogger(getClass().getName()).info(String.format("curl %s \"%s\" -d '%s'",  fakeCurlHeader, path.getRequest().getRequestURL(),payload));
+        }
+
         //Validate auth headers from path.getHeader
-        String sign = path.getHeader("X-Hmac-SHA256");
+        String sign = path.getHeader("X-WC-WEBHOOK-SIGNATURE");
         Mac mac = Mac.getInstance("HmacSHA256");
         mac.init(new SecretKeySpec(
                     eCommerceAdaptor.getConfiguration().get("in.succinct.bpp.woocommerce.hmac.key").getBytes(StandardCharsets.UTF_8),

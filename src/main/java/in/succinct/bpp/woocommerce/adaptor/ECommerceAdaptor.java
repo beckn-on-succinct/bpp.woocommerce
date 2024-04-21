@@ -20,6 +20,7 @@ import in.succinct.beckn.BreakUp.BreakUpElement.BreakUpCategory;
 import in.succinct.beckn.Contact;
 import in.succinct.beckn.Descriptor;
 import in.succinct.beckn.Fulfillment;
+import in.succinct.beckn.Fulfillment.FulfillmentType;
 import in.succinct.beckn.FulfillmentStop;
 import in.succinct.beckn.Fulfillments;
 import in.succinct.beckn.Images;
@@ -614,7 +615,7 @@ public class ECommerceAdaptor extends SearchAdaptor {
         return new WooCommerceOrder(order);
     }
 
-    private Order. NonUniqueItems createBecknItems(WooCommerceOrder. LineItems lineItems) {
+    private Order. NonUniqueItems createBecknItems(WooCommerceOrder. LineItems lineItems, Fulfillment fulfillment) {
         Order.NonUniqueItems items = new Order.NonUniqueItems();
 
         lineItems.forEach(lineItem -> {
@@ -632,6 +633,7 @@ public class ECommerceAdaptor extends SearchAdaptor {
             Quantity quantity = new Quantity();
             quantity.setCount(doubleTypeConverter.valueOf(lineItem.getQuantity()).intValue());
             item.setQuantity(quantity);
+            item.setFulfillmentId(fulfillment.getId());
 
             Price price = new Price();
             item.setPrice(price);
@@ -730,18 +732,29 @@ public class ECommerceAdaptor extends SearchAdaptor {
         // Delivery breakup to be filled.
         order.setBilling(woocommerceOrder.getOrderBilling().toBeckn());
         order.setState(woocommerceOrder.getBecknOrderStatus());
-        order.setItems(createBecknItems(woocommerceOrder.getLineItems()));
 
-        order.setFulfillment(new Fulfillment());
+
+        if (order.getFulfillment() == null) {
+            order.setFulfillment(new Fulfillment());
+        }
+        if (order.getFulfillment().getType() == null){
+            order.getFulfillment().setType(FulfillmentType.home_delivery);
+        }
         order.getFulfillment().setEnd(new FulfillmentStop());
         order.getFulfillment().getEnd().setLocation(new Location());
         order.getFulfillment().getEnd().getLocation().setAddress(new Address());
         order.getFulfillment().getEnd().setContact(new Contact());
         order.getFulfillment().setCustomer(new User());
+        order.getFulfillment().rm("id");
         order.getFulfillment().setId(BecknIdHelper.getBecknId(StringUtil.valueOf(woocommerceOrder.getId()),
                 this.getSubscriber(), Entity.fulfillment));
 
         order.getFulfillment().setFulfillmentStatus(woocommerceOrder.getFulfillmentStatus());
+
+
+        //Items added here.
+        order.setItems(createBecknItems(woocommerceOrder.getLineItems(),order.getFulfillment()));
+
         Locations locations = new Locations();
         locations.add(providerLocation());
 
@@ -767,7 +780,9 @@ public class ECommerceAdaptor extends SearchAdaptor {
             person.setName(billing.getFirstName() + " " + billing.getLastName());
         }
 
+
         Address address = order.getFulfillment().getEnd().getLocation().getAddress();
+        order.getFulfillment().getEnd().setPerson(person);
         if (address1_parts.length > 0) {
             address.setDoor(address1_parts[0]);
         }
