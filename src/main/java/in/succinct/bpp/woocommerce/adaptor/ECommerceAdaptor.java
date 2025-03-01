@@ -20,7 +20,7 @@ import in.succinct.beckn.BreakUp.BreakUpElement.BreakUpCategory;
 import in.succinct.beckn.Contact;
 import in.succinct.beckn.Descriptor;
 import in.succinct.beckn.Fulfillment;
-import in.succinct.beckn.Fulfillment.FulfillmentType;
+import in.succinct.beckn.Fulfillment.RetailFulfillmentType;
 import in.succinct.beckn.FulfillmentStop;
 import in.succinct.beckn.Fulfillments;
 import in.succinct.beckn.Images;
@@ -31,6 +31,7 @@ import in.succinct.beckn.Locations;
 import in.succinct.beckn.Message;
 import in.succinct.beckn.Order;
 import in.succinct.beckn.Payment;
+import in.succinct.beckn.Payments;
 import in.succinct.beckn.Person;
 import in.succinct.beckn.Price;
 import in.succinct.beckn.Provider;
@@ -138,7 +139,7 @@ public class ECommerceAdaptor extends SearchAdaptor {
         Fulfillment fulfillment = becknOrder.getFulfillment();
         Location storeLocation = becknOrder.getProviderLocation();
 
-        ProviderConfig.Serviceability serviceability = getProviderConfig().getServiceability(fulfillment.getType(), fulfillment.getEnd(), storeLocation);
+        ProviderConfig.Serviceability serviceability = getProviderConfig().getServiceability(fulfillment.getType(), fulfillment._getEnd(), storeLocation);
         if (!serviceability.isServiceable()) {
             throw serviceability.getReason();
         }
@@ -173,7 +174,7 @@ public class ECommerceAdaptor extends SearchAdaptor {
             becknOrder.setBilling(new Billing());
         }
         if (becknOrder.getBilling().getAddress() == null) {
-            becknOrder.getBilling().setAddress(becknOrder.getFulfillment().getEnd().getLocation().getAddress());
+            becknOrder.getBilling().setAddress(becknOrder.getFulfillment()._getEnd().getLocation().getAddress());
         }
 
         Billing billing = becknOrder.getBilling();
@@ -211,7 +212,7 @@ public class ECommerceAdaptor extends SearchAdaptor {
         String wooCommerceOrderId = LocalOrderSynchronizerFactory.getInstance().getLocalOrderSynchronizer(getSubscriber()).getLocalOrderId(order);
         JSONObject params = new JSONObject();
 
-        if (order.getPayment().getStatus() == Payment.PaymentStatus.PAID) {
+        if (order.isPaid()) {
             params.put("set_paid", true );
         }else {
             params.put("status", "pending");
@@ -450,7 +451,7 @@ public class ECommerceAdaptor extends SearchAdaptor {
         images.forEach(image -> {
             descriptor.getImages().add(image.getSrc());
         });
-        descriptor.setSymbol(descriptor.getImages().get(0));
+        descriptor.setSymbol(descriptor.getImages().get(0).getUrl());
 
         // Category
         item.setCategoryId(getProviderConfig().getCategory().getId());
@@ -519,8 +520,8 @@ public class ECommerceAdaptor extends SearchAdaptor {
         }
         WooCommerceOrder.OrderShipping shipping = new WooCommerceOrder.OrderShipping();
         User user = source.getCustomer();
-        Address address = source.getEnd().getLocation().getAddress();
-        Contact contact = source.getEnd().getContact();
+        Address address = source._getEnd().getLocation().getAddress();
+        Contact contact = source._getEnd().getContact();
         if (user == null && address != null) {
             user = new User();
             user.setPerson(new Person());
@@ -598,7 +599,7 @@ public class ECommerceAdaptor extends SearchAdaptor {
         } else {
             payment.setStatus(Payment.PaymentStatus.PAID);
         }
-        payment.setType(Payment.PaymentType.POST_FULFILLMENT);
+        payment.setPaymentType(Payment.POST_FULFILLMENT);
         payment.setParams(new Payment.Params());
         payment.getParams().setCurrency(
                 getShop().getGeneralSetting().getAttribute(SettingAttribute.AttributeKey.CURRENCY).getValue());
@@ -689,13 +690,15 @@ public class ECommerceAdaptor extends SearchAdaptor {
 
         Order order = new Order();
         order.update(lastKnownOrder);
-        order.setPayment(createBecknPayment(woocommerceOrder));
+        order.setPayments(new Payments(){{
+            add(createBecknPayment(woocommerceOrder));
+        }});
         Quote quote = new Quote();
         order.setQuote(quote);
         quote.setTtl(15 * 60);
         quote.setPrice(new Price());
-        quote.getPrice().setValue(order.getPayment().getParams().getAmount());
-        quote.getPrice().setCurrency(order.getPayment().getParams().getCurrency());
+        quote.getPrice().setValue(order.getPayments().get(0).getParams().getAmount());
+        quote.getPrice().setCurrency(order.getPayments().get(0).getParams().getCurrency());
         quote.setBreakUp(new BreakUp());
 
         Bucket productTotal = new Bucket();
@@ -731,19 +734,19 @@ public class ECommerceAdaptor extends SearchAdaptor {
 
         // Delivery breakup to be filled.
         order.setBilling(woocommerceOrder.getOrderBilling().toBeckn());
-        order.setState(woocommerceOrder.getBecknOrderStatus());
+        order.setStatus(woocommerceOrder.getBecknOrderStatus());
 
 
         if (order.getFulfillment() == null) {
             order.setFulfillment(new Fulfillment());
         }
         if (order.getFulfillment().getType() == null){
-            order.getFulfillment().setType(FulfillmentType.home_delivery);
+            order.getFulfillment().setType(RetailFulfillmentType.home_delivery.name());
         }
-        order.getFulfillment().setEnd(new FulfillmentStop());
-        order.getFulfillment().getEnd().setLocation(new Location());
-        order.getFulfillment().getEnd().getLocation().setAddress(new Address());
-        order.getFulfillment().getEnd().setContact(new Contact());
+        order.getFulfillment()._setEnd(new FulfillmentStop());
+        order.getFulfillment()._getEnd().setLocation(new Location());
+        order.getFulfillment()._getEnd().getLocation().setAddress(new Address());
+        order.getFulfillment()._getEnd().setContact(new Contact());
         order.getFulfillment().setCustomer(new User());
         order.getFulfillment().rm("id");
         order.getFulfillment().setId(BecknIdHelper.getBecknId(StringUtil.valueOf(woocommerceOrder.getId()),
@@ -759,8 +762,8 @@ public class ECommerceAdaptor extends SearchAdaptor {
         locations.add(providerLocation());
 
         if (!locations.isEmpty()) {
-            order.getFulfillment().setStart(new FulfillmentStop());
-            order.getFulfillment().getStart().setLocation(locations.get(0));
+            order.getFulfillment()._setStart(new FulfillmentStop());
+            order.getFulfillment()._getStart().setLocation(locations.get(0));
         }
 
         WooCommerceOrder.OrderShipping shipping = woocommerceOrder.getOrderShipping();
@@ -781,8 +784,8 @@ public class ECommerceAdaptor extends SearchAdaptor {
         }
 
 
-        Address address = order.getFulfillment().getEnd().getLocation().getAddress();
-        order.getFulfillment().getEnd().setPerson(person);
+        Address address = order.getFulfillment()._getEnd().getLocation().getAddress();
+        order.getFulfillment()._getEnd().setPerson(person);
         if (address1_parts.length > 0) {
             address.setDoor(address1_parts[0]);
         }
@@ -805,8 +808,8 @@ public class ECommerceAdaptor extends SearchAdaptor {
         address.setPinCode(shipping.getPostcode());
         address.setCity(city.getName());
 
-        order.getFulfillment().getEnd().getContact().setPhone(shipping.getPhone());
-        order.getFulfillment().getEnd().getContact().setEmail(shipping.getEmail());
+        order.getFulfillment()._getEnd().getContact().setPhone(shipping.getPhone());
+        order.getFulfillment()._getEnd().getContact().setEmail(shipping.getEmail());
         if (order.getFulfillments() == null){
             order.setFulfillments(new Fulfillments());
             order.getFulfillments().add(order.getFulfillment());

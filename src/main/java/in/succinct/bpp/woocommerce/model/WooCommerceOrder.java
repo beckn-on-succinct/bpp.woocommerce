@@ -99,12 +99,10 @@ public class WooCommerceOrder extends WooCommerceObjectWithId {
                 return Order.Status.Cancelled;
             case "pending":
                 // Handle pending status if needed
-                return Status.Created;
-            case "processing":
-                return Order.Status.In_progress;
+                return Order.Status.Created;
             // Add more cases for other WooCommerce statuses if necessary
             case "out-for-delivery" :
-                return Status.Out_for_delivery;
+                return Status.In_Transit;
             default:
                 // Handle any other statuses or provide a default mapping
                 return Status.Accepted;
@@ -193,34 +191,22 @@ public class WooCommerceOrder extends WooCommerceObjectWithId {
 
     public FulfillmentStatus getFulfillmentStatus() {
         String status = getStatus();
-        switch (status) {
-            case "draft":
-                return FulfillmentStatus.Serviceable;
-            case "packed":
-                return  FulfillmentStatus.Packed;
-            case "picked-up":
-                return FulfillmentStatus.Order_picked_up;
-            case "out-for-delivery":
-                return FulfillmentStatus.Out_for_delivery;
-            case "completed":
-                return FulfillmentStatus.Order_delivered;
-            case "cancelled":
-                return FulfillmentStatus.Cancelled;
-            case "return-initiated":
-                return FulfillmentStatus.Return_Initiated;
-            case "return-approved":
-                return FulfillmentStatus.Return_Approved;
-            case "return-rejected":
-                return FulfillmentStatus.Return_Rejected;
-            case "return-liquidated":
-                return FulfillmentStatus.Return_Liquidated;
-            case "return-delivered":
-                return FulfillmentStatus.Return_Delivered;
+        return switch (status) {
+            case "draft" -> FulfillmentStatus.Serviceable;
+            case "packed", "return-approved" -> FulfillmentStatus.Prepared;
+            case "picked-up", "out-for-delivery" ->
+                    FulfillmentStatus.In_Transit;
+            case "completed", "return-delivered" -> FulfillmentStatus.Completed;
+            case "cancelled",  "return-liquidated" ->
+                    FulfillmentStatus.Cancelled;
+            case "return-rejected" ->
+                    FulfillmentStatus.Void; /// No refund here.
+            case "return-initiated" -> FulfillmentStatus.Created;
             // Add more cases for other WooCommerce statuses if necessary
-            default:
+            default ->
                 // Handle any other statuses or provide a default mapping
-                return FulfillmentStatus.Pending;
-        }
+                    FulfillmentStatus.Preparing;
+        };
 
     }
 
