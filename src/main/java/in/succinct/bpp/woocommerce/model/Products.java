@@ -44,9 +44,6 @@ public class Products extends BecknObjectsWithId<Products.Product> {
             return getBoolean(AttributeKey.purchasable.getKey());
         }
 
-        public String getId(){
-            return StringUtil.valueOf(get("id"));
-        }
 
         public double getRegularPrice() {
             String priceString = get(AttributeKey.regularPrice.getKey());

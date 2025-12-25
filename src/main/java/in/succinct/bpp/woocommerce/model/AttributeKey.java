@@ -74,7 +74,7 @@ public enum AttributeKey {
     total("total"),
     subTotal("subTotal"),
     dateCreatedGmt("date_created_gmt"),
-    dateUpdatedGmt("date_updated_gmt"),
+    dateUpdatedGmt("date_modified_gmt"),
     datePaidGmt("date_paid_gmt"),
     dateCompletedGmt("date_completed_gmt"),
     cancelled("cancelled"),

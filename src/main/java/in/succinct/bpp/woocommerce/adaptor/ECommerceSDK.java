@@ -30,8 +30,6 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
-import java.util.Calendar;
-import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -195,15 +193,7 @@ public class ECommerceSDK {
         return creds.get("X-Webhook-Secret");
     }
     private String getAdminApiUrl(){
-        Date now = new Date();
-        Calendar calendar = Calendar.getInstance();
-        calendar.setTime(now);
-        int month = calendar.get(Calendar.MONTH) ;
-        int m = (month/3) * 3 + 1 ;
-        int y = calendar.get(Calendar.YEAR);
-        
-        
-        return String.format("%s/admin/api/%d-%02d", getStoreUrl(), y,m);
+        return String.format("%s/wp-json/wc/v3", getStoreUrl());
     }
     
     /* Shopify Store data utilities
@@ -306,10 +296,10 @@ public class ECommerceSDK {
     }
     
     
-    public ECommerceOrder findShopifyOrder(String shopifyOrderId, boolean draft){
+    public ECommerceOrder findECommerceOrder(String eCommerceOrderId, boolean draft){
         try {
             
-            JSONObject orderDetails = get("/orders/" + shopifyOrderId, new JSONObject());
+            JSONObject orderDetails = get("/orders/" + eCommerceOrderId, new JSONObject());
             return new ECommerceOrder(orderDetails);
         } catch (Exception e) {
             return null;

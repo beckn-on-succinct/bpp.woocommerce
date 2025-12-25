@@ -78,6 +78,7 @@ import in.succinct.bpp.woocommerce.model.ECommerceOrder.MetaDataArray;
 import in.succinct.bpp.woocommerce.model.ECommerceOrder.ShippingLine;
 import in.succinct.bpp.woocommerce.model.Products;
 import in.succinct.bpp.woocommerce.model.Products.Product;
+import in.succinct.bpp.woocommerce.model.Products.ProductCategory;
 import in.succinct.bpp.woocommerce.model.SettingAttribute;
 import in.succinct.bpp.woocommerce.model.Shop;
 import in.succinct.onet.core.adaptor.NetworkAdaptor.Domain;
@@ -161,7 +162,7 @@ public class ECommerceAdaptor extends CommerceAdaptor {
         User user = getUser(request);
         
         ECommerceSDK helper = new ECommerceSDK(user.getCredentials(true,getCredentialAttributes()));
-        ECommerceOrder latest = findShopifyOrder(helper,order);
+        ECommerceOrder latest = findECommerceOrder(helper,order);
         Order current = convert(helper,latest);
         if (response.getMessage() == null){
             response.setMessage(new Message());
@@ -484,11 +485,19 @@ public class ECommerceAdaptor extends CommerceAdaptor {
         // Basic Details
         
         // Category
-        item.setCategoryId(getProviderConfig().getCategory().getId());
         item.setCategoryIds(new BecknStrings());
-        item.getCategoryIds().add(item.getCategoryId());
+        for (ProductCategory category : product.getCategories()) {
+            String token = category.getName();
+            item.getCategoryIds().add(token);
+        }
         product.getTags().forEach(tag -> {
             String token = tag.getName().toUpperCase();
+            item.getCategoryIds().add(token);
+        });
+        if (item.getCategoryIds().isEmpty()){
+            item.getCategoryIds().add(product.getName());
+        }
+        for (String token : item.getCategoryIds()) {
             if (provider.getCategories().get(token) == null){
                 Category category = provider.getObjectCreator().create(Category.class);
                 category.setId(token);
@@ -500,7 +509,7 @@ public class ECommerceAdaptor extends CommerceAdaptor {
                 descriptor.setLongDesc(token);
                 provider.getCategories().add(category);
             }
-        });
+        }
 
         
         // Price
@@ -540,8 +549,9 @@ public class ECommerceAdaptor extends CommerceAdaptor {
         item.setTax(new Price());
         item.getTax().setValue(0.0);
         item.getTax().setCurrency(price.getCurrency());
-        item.setCountryOfOrigin(Country.findByISO(provider.getLocations().get(0).getAddress().getCountry()).getIsoCode());
-        item.setTag("general_attributes", "product_id", item.getId());
+        item.setCountryOfOrigin(Country.findByName(provider.getLocations().get(0).getAddress().getCountry()).getIsoCode());
+        item.setTag("general_attributes","product_id", product.getId());
+        
         return item;
         
     }
@@ -584,6 +594,7 @@ public class ECommerceAdaptor extends CommerceAdaptor {
         order.update(lastKnownOrder);
         
         Date updatedAt = eCommerceOrder.getUpdatedDateGmt();
+        
         
         localOrderSynchronizer.setFulfillmentStatusReachedAt(transactionId, eCommerceOrder.getFulfillmentStatus(), updatedAt, false);
         /*
@@ -715,14 +726,14 @@ public class ECommerceAdaptor extends CommerceAdaptor {
         return new ECommerceSDK(user.getCredentials(true,getCredentialAttributes()));
     }
     
-    public ECommerceOrder findShopifyOrder(ECommerceSDK helper, Order order){
+    public ECommerceOrder findECommerceOrder(ECommerceSDK helper, Order order){
         
         String shopifyOrderId = LocalOrderSynchronizerFactory.getInstance().getLocalOrderSynchronizer(getSubscriber()).getLocalOrderId(order);
         String draftOrderId = LocalOrderSynchronizerFactory.getInstance().getLocalOrderSynchronizer(getSubscriber()).getLocalDraftOrderId(order);
         if (shopifyOrderId != null){
-            return helper.findShopifyOrder(shopifyOrderId, false);
+            return helper.findECommerceOrder(shopifyOrderId, false);
         }else if (draftOrderId != null){
-            return helper.findShopifyOrder(draftOrderId,true);
+            return helper.findECommerceOrder(draftOrderId,true);
         }
         return null;
     }
@@ -794,7 +805,7 @@ public class ECommerceAdaptor extends CommerceAdaptor {
             lineItem.setQuantity(item.getItemQuantity().getSelected().getCount());
         }
         
-        lineItem.setProductId(item.getTags().get("product_id").getValue());
+        lineItem.setProductId(item.getTag("general_attributes","product_id"));
         line_items.add(lineItem);
         return lineItem;
     }
