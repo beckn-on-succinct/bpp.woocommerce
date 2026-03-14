@@ -19,7 +19,7 @@ public class CredentialsTemplate implements Extension {
     public void invoke(Object... context) {
         JSONObject template = (JSONObject) context[0];
         AdaptorCredential adaptorCredential = (AdaptorCredential)context[1];
-        String adaptorName = new StringTokenizer(Config.instance().getHostName(),".").nextToken();
+        String adaptorName = "woocommerce";
         
         if (ObjectUtil.equals(adaptorCredential.getAdaptorName(),adaptorName)) {
             String strCredJson = adaptorCredential.getCredentialJson();
